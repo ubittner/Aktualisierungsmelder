@@ -239,7 +239,7 @@ trait AM_ConfigurationForm
             $stateName = 'Existiert nicht!';
             $rowColor = '#FFC0C0'; //red
             if ($conditions) {
-                $stateName = $this->ReadPropertyString('SensorListStatusTextOK');
+                $stateName = 'OK';
                 $rowColor = '#C0FFC0'; //light green
                 //Check update
                 $lastUpdate = 'Nie';
@@ -252,7 +252,7 @@ trait AM_ConfigurationForm
                 $updatePeriod = $variable['UpdatePeriod'];
                 if ($dateDifference > $updatePeriod) {
                     $rowColor = '#FFC0C0'; //red
-                    $stateName = $this->ReadPropertyString('SensorListStatusTextAlarm');
+                    $stateName = 'Aktualisierung überfällig!';
                 }
                 if (!$variable['Use']) {
                     $stateName = 'Deaktiviert!';
