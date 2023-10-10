@@ -303,31 +303,32 @@ trait AM_ConfigurationForm
                                 'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["ID"]);',
                             ],
                             [
+                                'caption' => 'Name',
+                                'name'    => 'Designation',
+                                'width'   => '300px',
+                                'add'     => '',
+                                'visible' => true,
+                                'edit'    => [
+                                    'type' => 'ValidationTextBox'
+                                ]
+                            ],
+                            [
                                 'caption' => 'Variable',
                                 'name'    => 'VariableID',
                                 'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
                                 'width'   => '300px',
                                 'add'     => 0,
+                                'visible' => false,
                                 'edit'    => [
                                     'type' => 'SelectVariable'
                                 ]
                             ],
                             [
-                                'caption' => 'Ort',
+                                'caption' => 'Objektbaum',
                                 'name'    => 'VariableLocation',
                                 'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
-                                'width'   => '300px',
+                                'width'   => '350px',
                                 'add'     => ''
-                            ],
-                            [
-                                'caption' => 'Name',
-                                'name'    => 'Designation',
-                                'width'   => '400px',
-                                'add'     => '',
-                                'visible' => false,
-                                'edit'    => [
-                                    'type' => 'ValidationTextBox'
-                                ]
                             ],
                             [
                                 'caption' => 'Bemerkung',
