@@ -236,10 +236,10 @@ trait AM_ConfigurationForm
                 $variableLocation = IPS_GetLocation($variableID);
                 $conditions = true;
             }
-            $stateName = 'fehlerhaft';
+            $stateName = 'Existiert nicht!';
             $rowColor = '#FFC0C0'; //red
             if ($conditions) {
-                $stateName = $this->ReadPropertyString('StatusTextOK');
+                $stateName = $this->ReadPropertyString('SensorListStatusTextOK');
                 $rowColor = '#C0FFC0'; //light green
                 //Check update
                 $lastUpdate = 'Nie';
@@ -252,10 +252,10 @@ trait AM_ConfigurationForm
                 $updatePeriod = $variable['UpdatePeriod'];
                 if ($dateDifference > $updatePeriod) {
                     $rowColor = '#FFC0C0'; //red
-                    $stateName = $this->ReadPropertyString('StatusTextAlarm'); //'Überfällige Aktualisierung!';
+                    $stateName = $this->ReadPropertyString('SensorListStatusTextAlarm');
                 }
                 if (!$variable['Use']) {
-                    $stateName = 'deaktiviert';
+                    $stateName = 'Deaktiviert!';
                     $rowColor = '#DFDFDF'; //grey
                 }
             }
