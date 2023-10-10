@@ -1,0 +1,12 @@
+{
+    "id": "{D4EA0559-08BA-52EC-2933-E4530A2B5769}",
+    "name": "Aktualisierungsmelder",
+    "author": "Ulrich Bittner",
+    "url": "https://github.com/ubittner/Aktualisierungsmelder",
+    "compatibility": {
+        "version": "6.1"
+    },
+    "version": "1.0",
+    "build": 1,
+    "date": 1696922350
+}

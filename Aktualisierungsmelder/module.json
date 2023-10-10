@@ -1,0 +1,14 @@
+{
+    "id": "{EAC3392A-00F4-AC39-230E-34C28BAAE9B3}",
+    "name": "Aktualisierungsmelder",
+    "type": 3,
+    "vendor": "Ulrich Bittner",
+    "aliases": [
+        "Aktualisierungsmelder"
+    ],
+    "url": "https://github.com/ubittner/Aktualisierungsmelder/tree/main/Aktualisierungsmelder",
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "AM"
+}
