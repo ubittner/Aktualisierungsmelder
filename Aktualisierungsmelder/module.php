@@ -45,7 +45,7 @@ class Aktualisierungsmelder extends IPSModule
 
         //Sensor list
         $this->RegisterPropertyBoolean('EnableAlarm', true);
-        $this->RegisterPropertyString('SensorListStatusTextAlarm', '🔴  Alarm');
+        $this->RegisterPropertyString('SensorListStatusTextAlarm', '🔴  Aktualisierung überfällig');
         $this->RegisterPropertyBoolean('EnableOK', true);
         $this->RegisterPropertyString('SensorListStatusTextOK', '🟢  OK');
 

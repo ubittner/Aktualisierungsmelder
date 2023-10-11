@@ -292,7 +292,7 @@ trait AM_ConfigurationForm
                             [
                                 'name'    => 'ActualStatus',
                                 'caption' => 'Aktueller Status',
-                                'width'   => '150px',
+                                'width'   => '200px',
                                 'add'     => ''
                             ],
                             [
@@ -303,14 +303,11 @@ trait AM_ConfigurationForm
                                 'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["ID"]);',
                             ],
                             [
-                                'caption' => 'Name',
-                                'name'    => 'Designation',
-                                'width'   => '300px',
-                                'add'     => '',
-                                'visible' => true,
-                                'edit'    => [
-                                    'type' => 'ValidationTextBox'
-                                ]
+                                'caption' => 'Objektbaum',
+                                'name'    => 'VariableLocation',
+                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
+                                'width'   => '350px',
+                                'add'     => ''
                             ],
                             [
                                 'caption' => 'Variable',
@@ -324,22 +321,46 @@ trait AM_ConfigurationForm
                                 ]
                             ],
                             [
-                                'caption' => 'Objektbaum',
-                                'name'    => 'VariableLocation',
-                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
-                                'width'   => '350px',
-                                'add'     => ''
+                                'caption' => 'Name',
+                                'name'    => 'Designation',
+                                'width'   => '300px',
+                                'add'     => '',
+                                'edit'    => [
+                                    'type' => 'ValidationTextBox'
+                                ]
                             ],
                             [
                                 'caption' => 'Bemerkung',
                                 'name'    => 'Comment',
                                 'width'   => '300px',
                                 'add'     => '',
-                                'visible' => false,
                                 'edit'    => [
                                     'type' => 'ValidationTextBox'
                                 ]
                             ],
+                            [
+                                'caption' => ' ',
+                                'name'    => 'SpacerUpdatePeriod',
+                                'width'   => '200px',
+                                'add'     => '',
+                                'visible' => false,
+                                'edit'    => [
+                                    'type' => 'Label'
+                                ]
+                            ],
+                            [
+                                'caption' => 'Bedingung:',
+                                'name'    => 'LabelUpdatePeriod',
+                                'width'   => '200px',
+                                'add'     => '',
+                                'visible' => false,
+                                'edit'    => [
+                                    'type'   => 'Label',
+                                    'italic' => true,
+                                    'bold'   => true
+                                ]
+                            ],
+
                             [
                                 'caption' => 'Zeitraum',
                                 'name'    => 'UpdatePeriod',
@@ -1327,14 +1348,14 @@ trait AM_ConfigurationForm
                                 'value'   => 11
                             ]
                         ],
-                        'value'    => 0,
+                        'value'    => 10,
                         'onChange' => self::MODULE_PREFIX . '_CheckVariableDeterminationValue($id, $VariableDeterminationType);'
                     ],
                     [
                         'type'    => 'SelectProfile',
                         'name'    => 'ProfileSelection',
                         'caption' => 'Profil',
-                        'visible' => true
+                        'visible' => false
                     ],
                     [
                         'type'    => 'ValidationTextBox',
@@ -1424,6 +1445,12 @@ trait AM_ConfigurationForm
             [
                 'type'    => 'Label',
                 'caption' => ' '
+            ];
+
+        $form['actions'][] =
+            [
+                'type'    => 'Label',
+                'caption' => 'Schaltelemente'
             ];
 
         //Test center
