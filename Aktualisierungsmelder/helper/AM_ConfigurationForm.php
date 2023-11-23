@@ -1,14 +1,14 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper
  * @file          AM_ConfigurationForm.php
  * @author        Ulrich Bittner
  * @copyright     2022 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
-/** @noinspection PhpUndefinedFunctionInspection */
+/** @noinspection SpellCheckingInspection */
 /** @noinspection DuplicatedCode */
 
 declare(strict_types=1);
@@ -186,18 +186,12 @@ trait AM_ConfigurationForm
 
                         [
                             'type'    => 'CheckBox',
-                            'name'    => 'EnableAlarm',
-                            'caption' => 'Alarm anzeigen'
-                        ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => ' ',
-                            'width'   => '20px'
+                            'name'    => 'EnableAlarm'
                         ],
                         [
                             'type'    => 'ValidationTextBox',
                             'name'    => 'SensorListStatusTextAlarm',
-                            'caption' => 'Bezeichnung für Alarm'
+                            'caption' => 'Alarm'
                         ]
                     ]
                 ],
@@ -206,18 +200,12 @@ trait AM_ConfigurationForm
                     'items' => [
                         [
                             'type'    => 'CheckBox',
-                            'name'    => 'EnableOK',
-                            'caption' => 'OK anzeigen'
-                        ],
-                        [
-                            'type'    => 'Label',
-                            'caption' => ' ',
-                            'width'   => '38px'
+                            'name'    => 'EnableOK'
                         ],
                         [
                             'type'    => 'ValidationTextBox',
                             'name'    => 'SensorListStatusTextOK',
-                            'caption' => 'Bezeichnung für OK'
+                            'caption' => 'OK'
                         ]
                     ]
                 ]
@@ -361,7 +349,6 @@ trait AM_ConfigurationForm
                                     'bold'   => true
                                 ]
                             ],
-
                             [
                                 'caption' => 'Zeitraum',
                                 'name'    => 'UpdatePeriod',
@@ -832,6 +819,16 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
+                            'caption' => 'Zeitstempel',
+                            'name'    => 'UseTimestamp',
+                            'width'   => '100px',
+                            'add'     => true,
+                            'visible' => false,
+                            'edit'    => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
@@ -842,8 +839,18 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
-                            'caption' => 'Zeitstempel',
-                            'name'    => 'UseTimestamp',
+                            'caption' => 'Zeitraum',
+                            'name'    => 'UseUpdatePeriod',
+                            'width'   => '100px',
+                            'add'     => true,
+                            'visible' => false,
+                            'edit'    => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'caption' => 'Letzte Aktualisierung',
+                            'name'    => 'UseLastUpdate',
                             'width'   => '100px',
                             'add'     => true,
                             'visible' => false,
@@ -1192,6 +1199,16 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
+                            'caption' => 'Zeitstempel',
+                            'name'    => 'UseTimestamp',
+                            'width'   => '100px',
+                            'add'     => true,
+                            'visible' => false,
+                            'edit'    => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
                             'caption' => 'Betreff',
                             'name'    => 'Subject',
                             'width'   => '350px',
@@ -1211,8 +1228,18 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
-                            'caption' => 'Zeitstempel',
-                            'name'    => 'UseTimestamp',
+                            'caption' => 'Zeitraum',
+                            'name'    => 'UseUpdatePeriod',
+                            'width'   => '100px',
+                            'add'     => true,
+                            'visible' => false,
+                            'edit'    => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
+                            'caption' => 'Letzte Aktualisierung',
+                            'name'    => 'UseLastUpdate',
                             'width'   => '100px',
                             'add'     => true,
                             'visible' => false,
@@ -1396,7 +1423,7 @@ trait AM_ConfigurationForm
                                         'column'    => 'ID',
                                         'direction' => 'ascending'
                                     ],
-                                    'columns'  => [
+                                    'columns' => [
                                         [
                                             'caption' => 'Übernehmen',
                                             'name'    => 'Use',
@@ -1497,24 +1524,29 @@ trait AM_ConfigurationForm
                 'caption' => ' '
             ];
 
-        //Registered references
+        //Critical variables
         $criticalVariables = [];
         foreach (json_decode($this->ReadAttributeString('CriticalVariables'), true) as $criticalVariable) {
             $name = 'Objekt #' . $criticalVariable . ' existiert nicht';
             $rowColor = '#FFC0C0'; //red
             if (@IPS_ObjectExists($criticalVariable)) {
                 $name = IPS_GetName($criticalVariable);
-                $rowColor = '#C0FFC0'; //light green
+                $rowColor = '#FFFFC0'; //yellow
             }
             $criticalVariables[] = [
                 'ObjectID' => $criticalVariable,
                 'Name'     => $name,
                 'rowColor' => $rowColor];
         }
+        $amountCriticalVariables = count($criticalVariables);
+        if ($amountCriticalVariables == 0) {
+            $amountCriticalVariables = 1;
+        }
 
         //Registered references
         $registeredReferences = [];
         $references = $this->GetReferenceList();
+        $amountReferences = count($references);
         foreach ($references as $reference) {
             $name = 'Objekt #' . $reference . ' existiert nicht';
             $rowColor = '#FFC0C0'; //red
@@ -1531,6 +1563,7 @@ trait AM_ConfigurationForm
         //Registered messages
         $registeredMessages = [];
         $messages = $this->GetMessageList();
+        $amountMessages = count($messages);
         foreach ($messages as $id => $messageID) {
             $name = 'Objekt #' . $id . ' existiert nicht';
             $rowColor = '#FFC0C0'; //red
@@ -1564,20 +1597,26 @@ trait AM_ConfigurationForm
             'caption' => 'Entwicklerbereich',
             'items'   => [
                 [
+                    'type'    => 'Label',
+                    'caption' => 'Auslöser',
+                    'italic'  => true,
+                    'bold'    => true
+                ],
+                [
                     'type'  => 'RowLayout',
                     'items' => [
-                        [
-                            'type'    => 'SelectCategory',
-                            'name'    => 'LinkCategory',
-                            'caption' => 'Kategorie',
-                            'width'   => '610px'
-                        ],
                         [
                             'type'    => 'PopupButton',
                             'caption' => 'Verknüpfung erstellen',
                             'popup'   => [
                                 'caption' => 'Variablenverknüpfungen wirklich erstellen?',
                                 'items'   => [
+                                    [
+                                        'type'    => 'SelectCategory',
+                                        'name'    => 'LinkCategory',
+                                        'caption' => 'Kategorie',
+                                        'width'   => '610px'
+                                    ],
                                     [
                                         'type'    => 'Button',
                                         'caption' => 'Erstellen',
@@ -1607,10 +1646,17 @@ trait AM_ConfigurationForm
                     'caption' => ' '
                 ],
                 [
+                    'type'    => 'Label',
+                    'caption' => 'Kritische Variablen',
+                    'italic'  => true,
+                    'bold'    => true
+                ],
+                [
                     'type'     => 'List',
                     'name'     => 'CriticalVariables',
-                    'caption'  => 'Kritische Variablen',
-                    'rowCount' => 10,
+                    'delete'   => true,
+                    'onDelete' => self::MODULE_PREFIX . '_DeleteElementFromAttribute($id, "CriticalVariables", $CriticalVariables["ObjectID"]);',
+                    'rowCount' => $amountCriticalVariables,
                     'sort'     => [
                         'column'    => 'ObjectID',
                         'direction' => 'ascending'
@@ -1643,10 +1689,15 @@ trait AM_ConfigurationForm
                     'caption' => ' '
                 ],
                 [
+                    'type'    => 'Label',
+                    'caption' => 'Registrierte Referenzen',
+                    'italic'  => true,
+                    'bold'    => true
+                ],
+                [
                     'type'     => 'List',
                     'name'     => 'RegisteredReferences',
-                    'caption'  => 'Registrierte Referenzen',
-                    'rowCount' => 10,
+                    'rowCount' => $amountReferences,
                     'sort'     => [
                         'column'    => 'ObjectID',
                         'direction' => 'ascending'
@@ -1679,10 +1730,15 @@ trait AM_ConfigurationForm
                     'caption' => ' '
                 ],
                 [
+                    'type'    => 'Label',
+                    'caption' => 'Registrierte Nachrichten',
+                    'italic'  => true,
+                    'bold'    => true
+                ],
+                [
                     'type'     => 'List',
                     'name'     => 'RegisteredMessages',
-                    'caption'  => 'Registrierte Nachrichten',
-                    'rowCount' => 10,
+                    'rowCount' => $amountMessages,
                     'sort'     => [
                         'column'    => 'ObjectID',
                         'direction' => 'ascending'

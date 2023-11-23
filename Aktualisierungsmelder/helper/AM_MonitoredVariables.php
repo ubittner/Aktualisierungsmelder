@@ -1,16 +1,14 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper
  * @file          AM_MonitoredVariables.php
  * @author        Ulrich Bittner
  * @copyright     2022 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
-/** @noinspection PhpUndefinedFunctionInspection */
-/** @noinspection DuplicatedCode */
-/** @noinspection PhpUnused */
+/** @noinspection SpellCheckingInspection */
 
 declare(strict_types=1);
 
@@ -465,7 +463,7 @@ trait AM_MonitoredVariables
         $string = '';
         if ($this->ReadPropertyBoolean('EnableAlarmSensorList')) {
             $string .= "<table style='width: 100%; border-collapse: collapse;'>";
-            $string .= '<tr><td><b>Status</b></td><td><b>Name</b></td><td><b>Bemerkung</b></td><td><b>ID</b></td></tr>';
+            $string .= '<tr><td><b>Status</b></td><td><b>Name</b></td><td><b>Bemerkung</b></td><td><b>ID</b></td><td><b>Zeitraum</b></td><td><b>Letzte Aktualisierung</b></td></tr>';
             //Sort variables by name
             array_multisort(array_column($variables, 'Name'), SORT_ASC, $variables);
             //Rebase array
@@ -479,7 +477,7 @@ trait AM_MonitoredVariables
                         if ($id != 0 && IPS_ObjectExists($id)) {
                             if ($variable['ActualStatus'] == 1) {
                                 $separator = true;
-                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td></tr>';
+                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td><td>' . $variable['UpdatePeriod'] . ' Tage</td><td>' . $variable['LastUpdate'] . '</td></tr>';
                             }
                         }
                     }
@@ -498,14 +496,14 @@ trait AM_MonitoredVariables
                     }
                     //Add spacer
                     if ($separator && $existingElement) {
-                        $string .= '<tr><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td></tr>';
+                        $string .= '<tr><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td></tr>';
                     }
                     //Add sensors
                     foreach ($variables as $variable) {
                         $id = $variable['ID'];
                         if ($id != 0 && IPS_ObjectExists($id)) {
                             if ($variable['ActualStatus'] == 0) {
-                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td></tr>';
+                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td><td>' . $variable['UpdatePeriod'] . ' Tage</td><td>' . $variable['LastUpdate'] . '</td></tr>';
                             }
                         }
                     }
@@ -548,7 +546,7 @@ trait AM_MonitoredVariables
                         //Push notification
                         $this->SendPushNotification(1, $variable['Name']);
                         //Mailer notification
-                        $this->SendMailerNotification(1, $variable['Name']);
+                        $this->SendMailerNotification(1, $id); //change to id
                     }
                 }
 
@@ -562,7 +560,7 @@ trait AM_MonitoredVariables
                         //Push notification
                         $this->SendPushNotification(0, $variable['Name']);
                         //Mailer notification
-                        $this->SendMailerNotification(0, $variable['Name']);
+                        $this->SendMailerNotification(0, $id); //change to id
                     }
                 }
             }
@@ -593,6 +591,7 @@ trait AM_MonitoredVariables
                 $statusText = $this->ReadPropertyString('SensorListStatusTextOK');
                 //Check for update overdue
                 $variableUpdate = IPS_GetVariable($id)['VariableUpdated']; //timestamp or 0 = never
+                $lastUpdate = date('d.m.Y H:i:s', $variableUpdate);
                 $now = time();
                 $dateDifference = ($now - $variableUpdate) / (60 * 60 * 24);
                 $updatePeriod = $variable['UpdatePeriod'];
@@ -604,6 +603,8 @@ trait AM_MonitoredVariables
                     'ID'           => $id,
                     'Name'         => $variable['Designation'],
                     'Comment'      => $variable['Comment'],
+                    'UpdatePeriod' => $variable['UpdatePeriod'], //in days
+                    'LastUpdate'   => $lastUpdate,
                     'ActualStatus' => $actualStatus,
                     'StatusText'   => $statusText];
             }

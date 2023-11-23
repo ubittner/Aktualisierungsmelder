@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/
  * @file          module.php
  * @author        Ulrich Bittner
  * @copyright     2022 Ulrich Bittner
@@ -9,6 +9,7 @@
  */
 
 /** @noinspection PhpUnhandledExceptionInspection */
+/** @noinspection SpellCheckingInspection */
 /** @noinspection PhpUnused */
 
 declare(strict_types=1);
@@ -260,6 +261,18 @@ class Aktualisierungsmelder extends IPSModule
         }
         $this->UpdateFormField('InfoMessage', 'visible', true);
         $this->UpdateFormField('InfoMessageLabel', 'caption', $infoText);
+    }
+
+    public function DeleteElementFromAttribute(string $AttributeName, int $VariableID): void
+    {
+        $elements = json_decode($this->ReadAttributeString($AttributeName), true);
+        foreach ($elements as $key => $element) {
+            if ($element == $VariableID) {
+                unset($elements[$key]);
+            }
+        }
+        $elements = array_values($elements);
+        $this->WriteAttributeString($AttributeName, json_encode($elements));
     }
 
     public function UIShowMessage(string $Message): void
