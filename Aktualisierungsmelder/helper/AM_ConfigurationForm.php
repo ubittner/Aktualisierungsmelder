@@ -404,7 +404,12 @@ trait AM_ConfigurationForm
 
         //Notification
         $notificationAlarmValues = [];
-        foreach (json_decode($this->ReadPropertyString('NotificationAlarm'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('NotificationAlarm'), true);
+        $amountNotificationAlarm = count($elements);
+        if ($amountNotificationAlarm == 0) {
+            $amountNotificationAlarm = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -418,7 +423,12 @@ trait AM_ConfigurationForm
 
         //Push notification
         $pushNotificationAlarmValues = [];
-        foreach (json_decode($this->ReadPropertyString('PushNotificationAlarm'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('PushNotificationAlarm'), true);
+        $amountPushNotificationAlarm = count($elements);
+        if ($amountPushNotificationAlarm == 0) {
+            $amountPushNotificationAlarm = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -432,7 +442,12 @@ trait AM_ConfigurationForm
 
         //Mailer
         $mailerNotificationAlarmValues = [];
-        foreach (json_decode($this->ReadPropertyString('MailerNotificationAlarm'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('MailerNotificationAlarm'), true);
+        $amountMailerNotificationAlarm = count($elements);
+        if ($amountMailerNotificationAlarm == 0) {
+            $amountMailerNotificationAlarm = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -448,7 +463,12 @@ trait AM_ConfigurationForm
 
         //Notification
         $notificationValues = [];
-        foreach (json_decode($this->ReadPropertyString('Notification'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('Notification'), true);
+        $amountNotification = count($elements);
+        if ($amountNotification == 0) {
+            $amountNotification = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -462,7 +482,12 @@ trait AM_ConfigurationForm
 
         //Push notification
         $pushNotificationValues = [];
-        foreach (json_decode($this->ReadPropertyString('PushNotification'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('PushNotification'), true);
+        $amountPushNotification = count($elements);
+        if ($amountPushNotification == 0) {
+            $amountPushNotification = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -476,7 +501,12 @@ trait AM_ConfigurationForm
 
         //Mailer
         $mailerNotificationValues = [];
-        foreach (json_decode($this->ReadPropertyString('MailerNotification'), true) as $element) {
+        $elements = json_decode($this->ReadPropertyString('MailerNotification'), true);
+        $amountMailerNotification = count($elements);
+        if ($amountMailerNotification == 0) {
+            $amountMailerNotification = 1;
+        }
+        foreach ($elements as $element) {
             $rowColor = '#FFC0C0'; //red
             $id = $element['ID'];
             if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
@@ -500,7 +530,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'NotificationAlarm',
                     'caption'  => 'Nachricht Alarm',
-                    'rowCount' => 5,
+                    'rowCount' => $amountNotificationAlarm,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -602,7 +632,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'PushNotificationAlarm',
                     'caption'  => 'Push-Nachricht Alarm',
-                    'rowCount' => 5,
+                    'rowCount' => $amountPushNotificationAlarm,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -785,7 +815,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'MailerNotificationAlarm',
                     'caption'  => 'E-Mail Alarm',
-                    'rowCount' => 5,
+                    'rowCount' => $amountMailerNotificationAlarm,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -889,7 +919,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'Notification',
                     'caption'  => 'Nachricht OK',
-                    'rowCount' => 5,
+                    'rowCount' => $amountNotification,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -991,7 +1021,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'PushNotification',
                     'caption'  => 'Push-Nachricht OK',
-                    'rowCount' => 5,
+                    'rowCount' => $amountPushNotification,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -1174,7 +1204,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'MailerNotification',
                     'caption'  => 'E-Mail OK',
-                    'rowCount' => 5,
+                    'rowCount' => $amountMailerNotification,
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
