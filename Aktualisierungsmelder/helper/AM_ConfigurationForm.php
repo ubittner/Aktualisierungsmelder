@@ -1,10 +1,10 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper/
  * @file          AM_ConfigurationForm.php
  * @author        Ulrich Bittner
- * @copyright     2022 Ulrich Bittner
+ * @copyright     2023 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
@@ -52,7 +52,7 @@ trait AM_ConfigurationForm
     public function ModifyButton(string $Field, string $Caption, int $ObjectID): void
     {
         $state = false;
-        if ($ObjectID > 1 && @IPS_ObjectExists($ObjectID)) { //0 = main category, 1 = none
+        if ($ObjectID > 1 && @IPS_ObjectExists($ObjectID)) {
             $state = true;
         }
         $this->UpdateFormField($Field, 'caption', $Caption);
@@ -70,7 +70,18 @@ trait AM_ConfigurationForm
     public function ModifyTriggerListButton(string $Field, int $VariableID): void
     {
         $state = false;
-        if ($VariableID > 1 && @IPS_ObjectExists($VariableID)) { //0 = main category, 1 = none
+        if ($VariableID > 1 && @IPS_ObjectExists($VariableID)) {
+            $state = true;
+        }
+        $this->UpdateFormField($Field, 'caption', 'ID ' . $VariableID . ' Bearbeiten');
+        $this->UpdateFormField($Field, 'visible', $state);
+        $this->UpdateFormField($Field, 'objectID', $VariableID);
+    }
+
+    public function ModifyActualVariableStatesVariableButton(string $Field, int $VariableID): void
+    {
+        $state = false;
+        if ($VariableID > 1 && @IPS_ObjectExists($VariableID)) {
             $state = true;
         }
         $this->UpdateFormField($Field, 'caption', 'ID ' . $VariableID . ' Bearbeiten');
@@ -174,7 +185,7 @@ trait AM_ConfigurationForm
             ]
         ];
 
-        //Sensor list
+        //List options
         $form['elements'][] = [
             'type'    => 'ExpansionPanel',
             'name'    => 'Panel3',
@@ -185,8 +196,8 @@ trait AM_ConfigurationForm
                     'items' => [
 
                         [
-                            'type'    => 'CheckBox',
-                            'name'    => 'EnableAlarm'
+                            'type' => 'CheckBox',
+                            'name' => 'EnableAlarm'
                         ],
                         [
                             'type'    => 'ValidationTextBox',
@@ -199,8 +210,8 @@ trait AM_ConfigurationForm
                     'type'  => 'RowLayout',
                     'items' => [
                         [
-                            'type'    => 'CheckBox',
-                            'name'    => 'EnableOK'
+                            'type' => 'CheckBox',
+                            'name' => 'EnableOK'
                         ],
                         [
                             'type'    => 'ValidationTextBox',
@@ -212,60 +223,278 @@ trait AM_ConfigurationForm
             ]
         ];
 
-        //Trigger list
-        $triggerListValues = [];
-        $variables = json_decode($this->ReadPropertyString('TriggerList'), true);
-        $amount = count($variables);
-        foreach ($variables as $variable) {
-            $conditions = false;
-            $variableLocation = '';
-            $variableID = $variable['VariableID'];
-            $lastUpdate = '';
-            if ($variableID > 1 && @IPS_ObjectExists($variableID)) {
-                $variableLocation = IPS_GetLocation($variableID);
-                $conditions = true;
-            }
-            $stateName = 'Existiert nicht!';
-            $rowColor = '#FFC0C0'; //red
-            if ($conditions) {
-                $stateName = 'OK';
-                $rowColor = '#C0FFC0'; //light green
-                //Check update
-                $lastUpdate = 'Nie';
-                $variableUpdate = IPS_GetVariable($variableID)['VariableUpdated']; //timestamp or 0 = never
-                if ($variableUpdate != 0) {
-                    $lastUpdate = date('d.m.Y', $variableUpdate);
-                }
-                $now = time();
-                $dateDifference = ($now - $variableUpdate) / (60 * 60 * 24);
-                $updatePeriod = $variable['UpdatePeriod'];
-                if ($dateDifference > $updatePeriod) {
-                    $rowColor = '#FFC0C0'; //red
-                    $stateName = 'Aktualisierung überfällig!';
-                }
-                if (!$variable['Use']) {
-                    $stateName = 'Deaktiviert!';
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $triggerListValues[] = ['ActualStatus' => $stateName, 'ID' => $variableID, 'VariableID' => $variableID, 'VariableLocation' => $variableLocation, 'LastUpdate' => $lastUpdate, 'rowColor' => $rowColor];
-        }
+        //Update period
+        $form['elements'][] = [
+            'type'    => 'ExpansionPanel',
+            'name'    => 'Panel4',
+            'caption' => 'Aktualisierungszeitraum',
+            'items'   => [
+                [
+                    'type'  => 'RowLayout',
+                    'items' => [
+                        [
+                            'type'    => 'NumberSpinner',
+                            'name'    => 'TimeValue',
+                            'caption' => 'Zeit',
+                            'minimum' => 1,
+                            'maximum' => 30240
+                        ],
+                        [
+                            'type'     => 'Select',
+                            'name'     => 'TimeBase',
+                            'caption'  => 'Einheit',
+                            'onChange' => self::MODULE_PREFIX . '_CheckTimeValue($id, $TimeBase);',
+                            'options'  => [
+                                [
+                                    'caption' => 'Sekunden',
+                                    'value'   => 0
+                                ],
+                                [
+                                    'caption' => 'Minuten',
+                                    'value'   => 1
+                                ],
+                                [
+                                    'caption' => 'Stunden',
+                                    'value'   => 2
+                                ],
+                                [
+                                    'caption' => 'Tage',
+                                    'value'   => 3
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                [
+                    'type'    => 'Select',
+                    'name'    => 'StartUpCheckMode',
+                    'caption' => 'Verhalten bei Neustart',
+                    'width'   => '607px',
+                    'options' => [
+                        [
+                            'caption' => 'Sofortige Prüfung',
+                            'value'   => 0
+                        ],
+                        [
+                            'caption' => 'Prüfung zum nächsten Prüfzeitpunkt',
+                            'value'   => 1
+                        ]
+                    ]
+                ]
+            ]
+        ];
 
+        //Monitored variables
         $form['elements'][] =
             [
                 'type'    => 'ExpansionPanel',
-                'name'    => 'Panel4',
+                'name'    => 'Panel5',
                 'caption' => 'Auslöser',
                 'items'   => [
+                    [
+                        'type'    => 'PopupButton',
+                        'caption' => 'Variablen ermitteln',
+                        'popup'   => [
+                            'caption' => 'Variablen wirklich automatisch ermitteln und hinzufügen?',
+                            'items'   => [
+                                [
+                                    'type'    => 'Select',
+                                    'name'    => 'VariableDeterminationType',
+                                    'caption' => 'Auswahl',
+                                    'options' => [
+                                        [
+                                            'caption' => 'Profil auswählen',
+                                            'value'   => 0
+                                        ],
+                                        [
+                                            'caption' => 'Ident: LOWBAT',
+                                            'value'   => 1
+                                        ],
+                                        [
+                                            'caption' => 'Ident: LOW_BAT',
+                                            'value'   => 2
+                                        ],
+                                        [
+                                            'caption' => 'Ident: LOWBAT, LOW_BAT',
+                                            'value'   => 3
+                                        ],
+                                        [
+                                            'caption' => 'Ident: STATE',
+                                            'value'   => 4
+                                        ],
+                                        [
+                                            'caption' => 'Ident: MOTION',
+                                            'value'   => 5
+                                        ],
+                                        [
+                                            'caption' => 'Ident: SMOKE_DETECTOR_ALARM_STATUS',
+                                            'value'   => 6
+                                        ],
+                                        [
+                                            'caption' => 'Ident: ALARMSTATE',
+                                            'value'   => 7
+                                        ],
+                                        [
+                                            'caption' => 'Ident: Benutzerdefiniert',
+                                            'value'   => 8
+                                        ]
+                                    ],
+                                    'value'    => 0,
+                                    'onChange' => self::MODULE_PREFIX . '_CheckVariableDeterminationValue($id, $VariableDeterminationType);'
+                                ],
+                                [
+                                    'type'    => 'SelectProfile',
+                                    'name'    => 'ProfileSelection',
+                                    'caption' => 'Profil',
+                                    'visible' => true
+                                ],
+                                [
+                                    'type'    => 'ValidationTextBox',
+                                    'name'    => 'VariableDeterminationValue',
+                                    'caption' => 'Identifikator',
+                                    'visible' => false
+                                ],
+                                [
+                                    'type'    => 'Button',
+                                    'caption' => 'Ermitteln',
+                                    'onClick' => self::MODULE_PREFIX . '_DetermineVariables($id, $VariableDeterminationType, $VariableDeterminationValue, $ProfileSelection);'
+                                ],
+                                [
+                                    'type'    => 'ProgressBar',
+                                    'name'    => 'VariableDeterminationProgress',
+                                    'caption' => 'Fortschritt',
+                                    'minimum' => 0,
+                                    'maximum' => 100,
+                                    'visible' => false
+                                ],
+                                [
+                                    'type'    => 'Label',
+                                    'name'    => 'VariableDeterminationProgressInfo',
+                                    'caption' => '',
+                                    'visible' => false
+                                ],
+                                [
+                                    'type'     => 'List',
+                                    'name'     => 'DeterminedVariableList',
+                                    'caption'  => 'Variablen',
+                                    'rowCount' => 1,
+                                    'delete'   => true,
+                                    'visible'  => false,
+                                    'sort'     => [
+                                        'column'    => 'Location',
+                                        'direction' => 'ascending'
+                                    ],
+                                    'columns' => [
+                                        [
+                                            'caption' => 'Übernehmen',
+                                            'name'    => 'Use',
+                                            'width'   => '100px',
+                                            'add'     => true,
+                                            'edit'    => [
+                                                'type' => 'CheckBox'
+                                            ]
+                                        ],
+                                        [
+                                            'name'    => 'ID',
+                                            'caption' => 'ID',
+                                            'width'   => '80px',
+                                            'add'     => ''
+                                        ],
+                                        [
+                                            'caption' => 'Objektbaum',
+                                            'name'    => 'Location',
+                                            'width'   => '800px',
+                                            'add'     => ''
+                                        ],
+                                    ]
+                                ],
+                                [
+                                    'type'    => 'Button',
+                                    'name'    => 'ApplyPreTriggerValues',
+                                    'caption' => 'Übernehmen',
+                                    'visible' => false,
+                                    'onClick' => self::MODULE_PREFIX . '_AddSelectedVariables($id, $DeterminedVariableList);'
+                                ]
+                            ]
+                        ]
+                    ],
+                    [
+                        'type'    => 'PopupButton',
+                        'caption' => 'Aktueller Status',
+                        'popup'   => [
+                            'caption' => 'Aktueller Status',
+                            'items'   => [
+                                [
+                                    'type'     => 'List',
+                                    'name'     => 'ActualVariableStates',
+                                    'caption'  => 'Variablen',
+                                    'add'      => false,
+                                    'visible'  => false,
+                                    'rowCount' => 1,
+                                    'sort'     => [
+                                        'column'    => 'ActualStatus',
+                                        'direction' => 'ascending'
+                                    ],
+                                    'columns' => [
+                                        [
+                                            'name'    => 'ActualStatus',
+                                            'caption' => 'Aktueller Status',
+                                            'width'   => '300px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'ID',
+                                            'caption' => 'ID',
+                                            'width'   => '80px',
+                                            'onClick' => self::MODULE_PREFIX . '_ModifyActualVariableStatesVariableButton($id, "ActualVariableStatesConfigurationButton", $ActualVariableStates["ID"]);',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'Designation',
+                                            'caption' => 'Name',
+                                            'width'   => '400px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'Comment',
+                                            'caption' => 'Bemerkung',
+                                            'width'   => '400px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'LastUpdate',
+                                            'caption' => 'Letzte Aktualisierung',
+                                            'width'   => '200px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'OverdueSince',
+                                            'caption' => 'Überfällig seit',
+                                            'width'   => '200px',
+                                            'save'    => false
+                                        ]
+                                    ]
+                                ],
+                                [
+                                    'type'     => 'OpenObjectButton',
+                                    'name'     => 'ActualVariableStatesConfigurationButton',
+                                    'caption'  => 'Bearbeiten',
+                                    'visible'  => false,
+                                    'objectID' => 0
+                                ]
+                            ]
+                        ],
+                        'onClick' => self::MODULE_PREFIX . '_ListActualVariableStates($id);'
+                    ],
                     [
                         'type'     => 'List',
                         'name'     => 'TriggerList',
                         'caption'  => 'Auslöser',
-                        'rowCount' => $amount,
+                        'rowCount' => $this->CountRows('TriggerList'),
                         'add'      => true,
                         'delete'   => true,
                         'sort'     => [
-                            'column'    => 'ActualStatus',
+                            'column'    => 'Designation',
                             'direction' => 'ascending'
                         ],
                         'columns' => [
@@ -279,41 +508,11 @@ trait AM_ConfigurationForm
                                 ]
                             ],
                             [
-                                'name'    => 'ActualStatus',
-                                'caption' => 'Aktueller Status',
-                                'width'   => '200px',
-                                'add'     => ''
-                            ],
-                            [
-                                'name'    => 'ID',
-                                'caption' => 'ID',
-                                'width'   => '80px',
-                                'add'     => '',
-                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["ID"]);',
-                            ],
-                            [
-                                'caption' => 'Objektbaum',
-                                'name'    => 'VariableLocation',
-                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
-                                'width'   => '350px',
-                                'add'     => ''
-                            ],
-                            [
-                                'caption' => 'Variable',
-                                'name'    => 'VariableID',
-                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["VariableID"]);',
-                                'width'   => '300px',
-                                'add'     => 0,
-                                'visible' => false,
-                                'edit'    => [
-                                    'type' => 'SelectVariable'
-                                ]
-                            ],
-                            [
                                 'caption' => 'Name',
                                 'name'    => 'Designation',
-                                'width'   => '300px',
+                                'width'   => '400px',
                                 'add'     => '',
+                                'onClick' => self::MODULE_PREFIX . '_ModifyTriggerListButton($id, "TriggerListConfigurationButton", $TriggerList["ID"]);',
                                 'edit'    => [
                                     'type' => 'ValidationTextBox'
                                 ]
@@ -328,45 +527,95 @@ trait AM_ConfigurationForm
                                 ]
                             ],
                             [
-                                'caption' => ' ',
-                                'name'    => 'SpacerUpdatePeriod',
-                                'width'   => '200px',
-                                'add'     => '',
-                                'visible' => false,
+                                'caption' => 'Variable',
+                                'name'    => 'ID',
+                                'width'   => '800px',
+                                'add'     => 0,
                                 'edit'    => [
-                                    'type' => 'Label'
+                                    'type' => 'SelectVariable'
                                 ]
-                            ],
-                            [
-                                'caption' => 'Bedingung:',
-                                'name'    => 'LabelUpdatePeriod',
-                                'width'   => '200px',
-                                'add'     => '',
-                                'visible' => false,
-                                'edit'    => [
-                                    'type'   => 'Label',
-                                    'italic' => true,
-                                    'bold'   => true
-                                ]
-                            ],
-                            [
-                                'caption' => 'Zeitraum',
-                                'name'    => 'UpdatePeriod',
-                                'width'   => '100px',
-                                'add'     => 3,
-                                'edit'    => [
-                                    'type'   => 'NumberSpinner',
-                                    'suffix' => ' Tage'
-                                ]
-                            ],
-                            [
-                                'name'    => 'LastUpdate',
-                                'caption' => 'Letzte Aktualisierung',
-                                'width'   => '190px',
-                                'add'     => ''
                             ]
                         ],
-                        'values' => $triggerListValues,
+                        'values' => $this->GetListValues('TriggerList'),
+                    ],
+                    [
+                        'type'    => 'Label',
+                        'caption' => 'Anzahl Auslöser: ' . $this->CountElements('TriggerList')
+                    ],
+                    [
+                        'type'    => 'PopupButton',
+                        'caption' => 'Verknüpfung erstellen',
+                        'popup'   => [
+                            'caption' => 'Variablenverknüpfungen wirklich erstellen?',
+                            'items'   => [
+                                [
+                                    'type'    => 'SelectCategory',
+                                    'name'    => 'LinkCategory',
+                                    'caption' => 'Kategorie',
+                                    'width'   => '610px'
+                                ],
+                                [
+                                    'type'     => 'List',
+                                    'name'     => 'VariableLinkList',
+                                    'caption'  => 'Variablen',
+                                    'add'      => false,
+                                    'rowCount' => $this->CountElements('TriggerList'),
+                                    'sort'     => [
+                                        'column'    => 'Designation',
+                                        'direction' => 'ascending'
+                                    ],
+                                    'columns' => [
+                                        [
+                                            'caption' => 'Auswahl',
+                                            'name'    => 'Use',
+                                            'width'   => '100px',
+                                            'add'     => false,
+                                            'edit'    => [
+                                                'type' => 'CheckBox'
+                                            ]
+                                        ],
+                                        [
+                                            'name'    => 'SensorID',
+                                            'caption' => 'ID',
+                                            'width'   => '80px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'Designation',
+                                            'caption' => 'Name',
+                                            'width'   => '400px',
+                                            'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'Comment',
+                                            'caption' => 'Bemerkung',
+                                            'width'   => '400px',
+                                            'save'    => false
+                                        ]
+                                    ],
+                                    'values' => $this->GetListValues('VariableLinkList'),
+                                ],
+                                [
+                                    'type'    => 'Button',
+                                    'caption' => 'Erstellen',
+                                    'onClick' => self::MODULE_PREFIX . '_CreateVariableLinks($id, $LinkCategory, $VariableLinkList);'
+                                ],
+                                [
+                                    'type'    => 'ProgressBar',
+                                    'name'    => 'VariableLinkProgress',
+                                    'caption' => 'Fortschritt',
+                                    'minimum' => 0,
+                                    'maximum' => 100,
+                                    'visible' => false
+                                ],
+                                [
+                                    'type'    => 'Label',
+                                    'name'    => 'VariableLinkProgressInfo',
+                                    'caption' => '',
+                                    'visible' => false
+                                ]
+                            ]
+                        ]
                     ],
                     [
                         'type'     => 'OpenObjectButton',
@@ -378,159 +627,24 @@ trait AM_ConfigurationForm
                 ]
             ];
 
-        ##### Automatic status update
-        $form['elements'][] = [
-            'type'    => 'ExpansionPanel',
-            'name'    => 'Panel5',
-            'caption' => 'Aktualisierung',
-            'items'   => [
-                [
-                    'type'    => 'CheckBox',
-                    'name'    => 'AutomaticStatusUpdate',
-                    'caption' => 'Automatische Aktualisierung'
-                ],
-                [
-                    'type'    => 'NumberSpinner',
-                    'name'    => 'StatusUpdateInterval',
-                    'caption' => 'Intervall',
-                    'suffix'  => 'Sekunden'
-                ]
-            ]
-        ];
-
-        ##### Notifications
-
-        ### Notification Alarm
-
-        //Notification
-        $notificationAlarmValues = [];
-        $elements = json_decode($this->ReadPropertyString('NotificationAlarm'), true);
-        $amountNotificationAlarm = count($elements);
-        if ($amountNotificationAlarm == 0) {
-            $amountNotificationAlarm = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $notificationAlarmValues[] = ['rowColor' => $rowColor];
-        }
-
-        //Push notification
-        $pushNotificationAlarmValues = [];
-        $elements = json_decode($this->ReadPropertyString('PushNotificationAlarm'), true);
-        $amountPushNotificationAlarm = count($elements);
-        if ($amountPushNotificationAlarm == 0) {
-            $amountPushNotificationAlarm = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $pushNotificationAlarmValues[] = ['rowColor' => $rowColor];
-        }
-
-        //Mailer
-        $mailerNotificationAlarmValues = [];
-        $elements = json_decode($this->ReadPropertyString('MailerNotificationAlarm'), true);
-        $amountMailerNotificationAlarm = count($elements);
-        if ($amountMailerNotificationAlarm == 0) {
-            $amountMailerNotificationAlarm = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $mailerNotificationAlarmValues[] = ['rowColor' => $rowColor];
-        }
-
-        ### Notification OK
-
-        //Notification
-        $notificationValues = [];
-        $elements = json_decode($this->ReadPropertyString('Notification'), true);
-        $amountNotification = count($elements);
-        if ($amountNotification == 0) {
-            $amountNotification = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $notificationValues[] = ['rowColor' => $rowColor];
-        }
-
-        //Push notification
-        $pushNotificationValues = [];
-        $elements = json_decode($this->ReadPropertyString('PushNotification'), true);
-        $amountPushNotification = count($elements);
-        if ($amountPushNotification == 0) {
-            $amountPushNotification = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $pushNotificationValues[] = ['rowColor' => $rowColor];
-        }
-
-        //Mailer
-        $mailerNotificationValues = [];
-        $elements = json_decode($this->ReadPropertyString('MailerNotification'), true);
-        $amountMailerNotification = count($elements);
-        if ($amountMailerNotification == 0) {
-            $amountMailerNotification = 1;
-        }
-        foreach ($elements as $element) {
-            $rowColor = '#FFC0C0'; //red
-            $id = $element['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                $rowColor = '#C0FFC0'; //light green
-                if (!$element['Use']) {
-                    $rowColor = '#DFDFDF'; //grey
-                }
-            }
-            $mailerNotificationValues[] = ['rowColor' => $rowColor];
-        }
-
+        //Notifications
         $form['elements'][] = [
             'type'    => 'ExpansionPanel',
             'name'    => 'Panel6',
             'caption' => 'Benachrichtigungen',
             'items'   => [
-
                 ### Alarm
-
+                [
+                    'type'    => 'Label',
+                    'caption' => 'Alarm',
+                    'bold'    => true,
+                    'italic'  => true
+                ],
                 [
                     'type'     => 'List',
                     'name'     => 'NotificationAlarm',
                     'caption'  => 'Nachricht Alarm',
-                    'rowCount' => $amountNotificationAlarm,
+                    'rowCount' => $this->CountRows('NotificationAlarm'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -559,7 +673,6 @@ trait AM_ConfigurationForm
                             'name'    => 'Icon',
                             'width'   => '200px',
                             'add'     => 'Warning',
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'SelectIcon'
                             ]
@@ -577,7 +690,7 @@ trait AM_ConfigurationForm
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🔴  %1$s, Aktualisierung überfällig!',
+                            'add'     => '🔴 %1$s, Aktualisierung überfällig!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
@@ -586,9 +699,8 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zeitstempel',
                             'name'    => 'UseTimestamp',
-                            'width'   => '100px',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
@@ -598,14 +710,13 @@ trait AM_ConfigurationForm
                             'name'    => 'DisplayDuration',
                             'width'   => '200px',
                             'add'     => 0,
-                            'visible' => false,
                             'edit'    => [
                                 'type'   => 'NumberSpinner',
-                                'suffix' => 'Sekunden'
+                                'suffix' => ' Sekunden'
                             ]
                         ]
                     ],
-                    'values' => $notificationAlarmValues,
+                    'values' => $this->GetListValues('NotificationAlarm'),
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -632,7 +743,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'PushNotificationAlarm',
                     'caption'  => 'Push-Nachricht Alarm',
-                    'rowCount' => $amountPushNotificationAlarm,
+                    'rowCount' => $this->CountRows('PushNotificationAlarm'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -669,7 +780,7 @@ trait AM_ConfigurationForm
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🔴  %1$s, Aktualisierung überfällig!',
+                            'add'     => '🔴 %1$s, Aktualisierung überfällig!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
@@ -678,9 +789,8 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zeitstempel',
                             'name'    => 'UseTimestamp',
-                            'width'   => '100px',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
@@ -690,7 +800,6 @@ trait AM_ConfigurationForm
                             'name'    => 'Sound',
                             'width'   => '200px',
                             'add'     => 'alarm',
-                            'visible' => false,
                             'edit'    => [
                                 'type'    => 'Select',
                                 'options' => [
@@ -780,15 +889,14 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zielscript',
                             'name'    => 'TargetID',
-                            'width'   => '200px',
+                            'width'   => '600px',
                             'add'     => 0,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'SelectScript'
                             ]
                         ]
                     ],
-                    'values' => $pushNotificationAlarmValues,
+                    'values' => $this->GetListValues('PushNotificationAlarm'),
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -815,7 +923,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'MailerNotificationAlarm',
                     'caption'  => 'E-Mail Alarm',
-                    'rowCount' => $amountMailerNotificationAlarm,
+                    'rowCount' => $this->CountRows('MailerNotificationAlarm'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -851,9 +959,8 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zeitstempel',
                             'name'    => 'UseTimestamp',
-                            'width'   => '100px',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
@@ -862,34 +969,32 @@ trait AM_ConfigurationForm
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🔴  %1$s, Aktualisierung überfällig!',
+                            'add'     => '🔴 %1$s, Aktualisierung überfällig!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
                             ]
                         ],
                         [
-                            'caption' => 'Zeitraum',
-                            'name'    => 'UseUpdatePeriod',
-                            'width'   => '100px',
+                            'caption' => 'Letzte Aktualisierung',
+                            'name'    => 'UseLastUpdate',
+                            'width'   => '200px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
                         ],
                         [
-                            'caption' => 'Letzte Aktualisierung',
-                            'name'    => 'UseLastUpdate',
-                            'width'   => '100px',
+                            'caption' => 'Überfällig seit',
+                            'name'    => 'UseOverdueSince',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
                         ]
                     ],
-                    'values' => $mailerNotificationAlarmValues,
+                    'values' => $this->GetListValues('MailerNotificationAlarm'),
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -912,14 +1017,18 @@ trait AM_ConfigurationForm
                     'type'    => 'Label',
                     'caption' => ' ',
                 ],
-
                 ### OK
-
+                [
+                    'type'    => 'Label',
+                    'caption' => 'OK',
+                    'bold'    => true,
+                    'italic'  => true
+                ],
                 [
                     'type'     => 'List',
                     'name'     => 'Notification',
                     'caption'  => 'Nachricht OK',
-                    'rowCount' => $amountNotification,
+                    'rowCount' => $this->CountRows('Notification'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -948,7 +1057,6 @@ trait AM_ConfigurationForm
                             'name'    => 'Icon',
                             'width'   => '200px',
                             'add'     => 'Ok',
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'SelectIcon'
                             ]
@@ -966,7 +1074,7 @@ trait AM_ConfigurationForm
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🟢  %1$s, hat sich wieder aktualisiert!',
+                            'add'     => '🟢 %1$s, hat sich wieder aktualisiert!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
@@ -975,9 +1083,8 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zeitstempel',
                             'name'    => 'UseTimestamp',
-                            'width'   => '100px',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
@@ -987,14 +1094,13 @@ trait AM_ConfigurationForm
                             'name'    => 'DisplayDuration',
                             'width'   => '200px',
                             'add'     => 0,
-                            'visible' => false,
                             'edit'    => [
                                 'type'   => 'NumberSpinner',
-                                'suffix' => 'Sekunden'
+                                'suffix' => ' Sekunden'
                             ]
                         ]
                     ],
-                    'values' => $notificationValues,
+                    'values' => $this->GetListValues('Notification')
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -1021,7 +1127,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'PushNotification',
                     'caption'  => 'Push-Nachricht OK',
-                    'rowCount' => $amountPushNotification,
+                    'rowCount' => $this->CountRows('PushNotification'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -1058,7 +1164,7 @@ trait AM_ConfigurationForm
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🟢  %1$s, hat sich wieder aktualisiert!',
+                            'add'     => '🟢 %1$s, hat sich wieder aktualisiert!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
@@ -1067,9 +1173,8 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zeitstempel',
                             'name'    => 'UseTimestamp',
-                            'width'   => '100px',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
@@ -1079,7 +1184,6 @@ trait AM_ConfigurationForm
                             'name'    => 'Sound',
                             'width'   => '200px',
                             'add'     => '',
-                            'visible' => false,
                             'edit'    => [
                                 'type'    => 'Select',
                                 'options' => [
@@ -1169,15 +1273,14 @@ trait AM_ConfigurationForm
                         [
                             'caption' => 'Zielscript',
                             'name'    => 'TargetID',
-                            'width'   => '200px',
+                            'width'   => '600px',
                             'add'     => 0,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'SelectScript'
                             ]
                         ]
                     ],
-                    'values' => $pushNotificationValues,
+                    'values' => $this->GetListValues('PushNotification')
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -1204,7 +1307,7 @@ trait AM_ConfigurationForm
                     'type'     => 'List',
                     'name'     => 'MailerNotification',
                     'caption'  => 'E-Mail OK',
-                    'rowCount' => $amountMailerNotification,
+                    'rowCount' => $this->CountRows('MailerNotification'),
                     'add'      => true,
                     'delete'   => true,
                     'columns'  => [
@@ -1229,16 +1332,6 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
-                            'caption' => 'Zeitstempel',
-                            'name'    => 'UseTimestamp',
-                            'width'   => '100px',
-                            'add'     => true,
-                            'visible' => false,
-                            'edit'    => [
-                                'type' => 'CheckBox'
-                            ]
-                        ],
-                        [
                             'caption' => 'Betreff',
                             'name'    => 'Subject',
                             'width'   => '350px',
@@ -1248,37 +1341,44 @@ trait AM_ConfigurationForm
                             ]
                         ],
                         [
+                            'caption' => 'Zeitstempel',
+                            'name'    => 'UseTimestamp',
+                            'width'   => '150px',
+                            'add'     => true,
+                            'edit'    => [
+                                'type' => 'CheckBox'
+                            ]
+                        ],
+                        [
                             'caption' => 'Text der Meldung (maximal 256 Zeichen)',
                             'name'    => 'Text',
                             'width'   => '350px',
-                            'add'     => '🟢  %1$s, hat sich wieder aktualisiert!',
+                            'add'     => '🟢 %1$s, hat sich wieder aktualisiert!',
                             'edit'    => [
                                 'type'      => 'ValidationTextBox',
                                 'multiline' => true
                             ]
                         ],
                         [
-                            'caption' => 'Zeitraum',
-                            'name'    => 'UseUpdatePeriod',
-                            'width'   => '100px',
+                            'caption' => 'Letzte Aktualisierung',
+                            'name'    => 'UseLastUpdate',
+                            'width'   => '200px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
                         ],
                         [
-                            'caption' => 'Letzte Aktualisierung',
-                            'name'    => 'UseLastUpdate',
-                            'width'   => '100px',
+                            'caption' => 'Überfällig seit',
+                            'name'    => 'UseOverdueSince',
+                            'width'   => '150px',
                             'add'     => true,
-                            'visible' => false,
                             'edit'    => [
                                 'type' => 'CheckBox'
                             ]
-                        ]
+                        ],
                     ],
-                    'values' => $mailerNotificationValues,
+                    'values' => $this->GetListValues('MailerNotification')
                 ],
                 [
                     'type'  => 'RowLayout',
@@ -1300,8 +1400,7 @@ trait AM_ConfigurationForm
             ]
         ];
 
-        ##### Visualisation
-
+        //Visualisation
         $form['elements'][] = [
             'type'    => 'ExpansionPanel',
             'name'    => 'Panel7',
@@ -1324,8 +1423,8 @@ trait AM_ConfigurationForm
                 ],
                 [
                     'type'    => 'CheckBox',
-                    'name'    => 'EnableLastUpdate',
-                    'caption' => 'Letzte Aktualisierung'
+                    'name'    => 'EnableLastCheck',
+                    'caption' => 'Letzte Überprüfung'
                 ],
                 [
                     'type'    => 'CheckBox',
@@ -1334,207 +1433,13 @@ trait AM_ConfigurationForm
                 ],
                 [
                     'type'    => 'CheckBox',
-                    'name'    => 'EnableAlarmSensorList',
-                    'caption' => 'Aktualisierungsmelderliste'
+                    'name'    => 'EnableStatusList',
+                    'caption' => 'Statusliste'
                 ]
             ]
         ];
 
         ########## Actions
-
-        $form['actions'][] =
-            [
-                'type'    => 'Label',
-                'caption' => 'Auslöser'
-            ];
-
-        $form['actions'][] =
-            [
-                'type'  => 'RowLayout',
-                'items' => [
-                    [
-                        'type'    => 'PopupButton',
-                        'caption' => 'Variablen ermitteln',
-                        'popup'   => [
-                            'caption' => 'Variablen wirklich automatisch ermitteln und hinzufügen?',
-                            'items'   => [
-                                [
-                                    'type'    => 'Select',
-                                    'name'    => 'VariableDeterminationType',
-                                    'caption' => 'Auswahl',
-                                    'options' => [
-                                        [
-                                            'caption' => 'Profil auswählen',
-                                            'value'   => 0
-                                        ],
-                                        [
-                                            'caption' => 'Profil: ~Battery',
-                                            'value'   => 1
-                                        ],
-                                        [
-                                            'caption' => 'Profil: ~Battery.Reversed',
-                                            'value'   => 2
-                                        ],
-                                        [
-                                            'caption' => 'Profil: BATM.Battery.Boolean',
-                                            'value'   => 3
-                                        ],
-                                        [
-                                            'caption' => 'Profil: BATM.Battery.Boolean.Reversed',
-                                            'value'   => 4
-                                        ],
-                                        [
-                                            'caption' => 'Profil: BATM.Battery.Integer',
-                                            'value'   => 5
-                                        ],
-                                        [
-                                            'caption' => 'Profil: BATM.Battery.Integer.Reversed',
-                                            'value'   => 6
-                                        ],
-                                        [
-                                            'caption' => 'Ident: LOWBAT',
-                                            'value'   => 7
-                                        ],
-                                        [
-                                            'caption' => 'Ident: LOW_BAT',
-                                            'value'   => 8
-                                        ],
-                                        [
-                                            'caption' => 'Ident: LOWBAT, LOW_BAT',
-                                            'value'   => 9
-                                        ],
-                                        [
-                                            'caption' => 'Ident: Benutzerdefiniert',
-                                            'value'   => 10
-                                        ]
-                                    ],
-                                    'value'    => 9,
-                                    'onChange' => self::MODULE_PREFIX . '_CheckVariableDeterminationValue($id, $VariableDeterminationType);'
-                                ],
-                                [
-                                    'type'    => 'SelectProfile',
-                                    'name'    => 'ProfileSelection',
-                                    'caption' => 'Profil',
-                                    'visible' => false
-                                ],
-                                [
-                                    'type'    => 'ValidationTextBox',
-                                    'name'    => 'VariableDeterminationValue',
-                                    'caption' => 'Identifikator',
-                                    'visible' => false
-                                ],
-                                [
-                                    'type'    => 'Button',
-                                    'caption' => 'Ermitteln',
-                                    'onClick' => self::MODULE_PREFIX . '_DetermineVariables($id, $VariableDeterminationType, $VariableDeterminationValue, $ProfileSelection);'
-                                ],
-                                [
-                                    'type'    => 'ProgressBar',
-                                    'name'    => 'VariableDeterminationProgress',
-                                    'caption' => 'Fortschritt',
-                                    'minimum' => 0,
-                                    'maximum' => 100,
-                                    'visible' => false
-                                ],
-                                [
-                                    'type'    => 'Label',
-                                    'name'    => 'VariableDeterminationProgressInfo',
-                                    'caption' => '',
-                                    'visible' => false
-                                ],
-                                [
-                                    'type'     => 'List',
-                                    'name'     => 'DeterminedVariableList',
-                                    'caption'  => 'Variablen',
-                                    'visible'  => false,
-                                    'rowCount' => 15,
-                                    'delete'   => true,
-                                    'sort'     => [
-                                        'column'    => 'ID',
-                                        'direction' => 'ascending'
-                                    ],
-                                    'columns' => [
-                                        [
-                                            'caption' => 'Übernehmen',
-                                            'name'    => 'Use',
-                                            'width'   => '100px',
-                                            'add'     => true,
-                                            'edit'    => [
-                                                'type' => 'CheckBox'
-                                            ]
-                                        ],
-                                        [
-                                            'name'    => 'ID',
-                                            'caption' => 'ID',
-                                            'width'   => '80px',
-                                            'add'     => ''
-                                        ],
-                                        [
-                                            'caption' => 'Objektbaum',
-                                            'name'    => 'Location',
-                                            'width'   => '800px',
-                                            'add'     => ''
-                                        ],
-                                    ]
-                                ],
-                                [
-                                    'type'    => 'Button',
-                                    'name'    => 'ApplyPreTriggerValues',
-                                    'caption' => 'Übernehmen',
-                                    'visible' => false,
-                                    'onClick' => self::MODULE_PREFIX . '_ApplyDeterminedVariables($id, $DeterminedVariableList);'
-                                ]
-                            ]
-                        ]
-                    ],
-                    [
-                        'type'    => 'PopupButton',
-                        'caption' => 'Status aktualisieren',
-                        'popup'   => [
-                            'caption' => 'Status wirklich aktualisieren?',
-                            'items'   => [
-                                [
-                                    'type'    => 'Button',
-                                    'caption' => 'Aktualisieren',
-                                    'onClick' => self::MODULE_PREFIX . '_UpdateStatus($id);' . self::MODULE_PREFIX . '_UIShowMessage($id, "Status wurde aktualisiert!");'
-                                ]
-                            ],
-                            'buttons' => [
-                                [
-                                    'caption' => 'Konfiguration neu laden',
-                                    'onClick' => self::MODULE_PREFIX . '_ReloadConfig($id);'
-                                ]
-                            ]
-                        ]
-                    ],
-                    [
-                        'type'    => 'PopupButton',
-                        'caption' => 'Kritische Variablen zurücksetzen',
-                        'popup'   => [
-                            'caption' => 'Kritische Variablen wirklich zurücksetzen?',
-                            'items'   => [
-                                [
-                                    'type'    => 'Button',
-                                    'caption' => 'Zurücksetzen',
-                                    'onClick' => self::MODULE_PREFIX . '_ResetCriticalVariables($id); ' . self::MODULE_PREFIX . '_UIShowMessage($id, "Variablen wurden erfolgreich zurückgesetzt!");'
-                                ]
-                            ],
-                            'buttons' => [
-                                [
-                                    'caption' => 'Konfiguration neu laden',
-                                    'onClick' => self::MODULE_PREFIX . '_ReloadConfig($id);'
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ];
-
-        $form['actions'][] =
-            [
-                'type'    => 'Label',
-                'caption' => ' '
-            ];
 
         $form['actions'][] =
             [
@@ -1554,51 +1459,43 @@ trait AM_ConfigurationForm
                 'caption' => ' '
             ];
 
-        //Critical variables
-        $criticalVariables = [];
-        foreach (json_decode($this->ReadAttributeString('CriticalVariables'), true) as $criticalVariable) {
-            $name = 'Objekt #' . $criticalVariable . ' existiert nicht';
-            $rowColor = '#FFC0C0'; //red
-            if (@IPS_ObjectExists($criticalVariable)) {
-                $name = IPS_GetName($criticalVariable);
-                $rowColor = '#FFFFC0'; //yellow
-            }
-            $criticalVariables[] = [
-                'ObjectID' => $criticalVariable,
-                'Name'     => $name,
-                'rowColor' => $rowColor];
-        }
-        $amountCriticalVariables = count($criticalVariables);
-        if ($amountCriticalVariables == 0) {
-            $amountCriticalVariables = 1;
-        }
-
         //Registered references
         $registeredReferences = [];
         $references = $this->GetReferenceList();
         $amountReferences = count($references);
+        if ($amountReferences == 0) {
+            $amountReferences = 3;
+        }
         foreach ($references as $reference) {
             $name = 'Objekt #' . $reference . ' existiert nicht';
+            $location = '';
             $rowColor = '#FFC0C0'; //red
             if (@IPS_ObjectExists($reference)) {
                 $name = IPS_GetName($reference);
+                $location = IPS_GetLocation($reference);
                 $rowColor = '#C0FFC0'; //light green
             }
             $registeredReferences[] = [
-                'ObjectID' => $reference,
-                'Name'     => $name,
-                'rowColor' => $rowColor];
+                'ObjectID'         => $reference,
+                'Name'             => $name,
+                'VariableLocation' => $location,
+                'rowColor'         => $rowColor];
         }
 
         //Registered messages
         $registeredMessages = [];
         $messages = $this->GetMessageList();
         $amountMessages = count($messages);
+        if ($amountMessages == 0) {
+            $amountMessages = 3;
+        }
         foreach ($messages as $id => $messageID) {
             $name = 'Objekt #' . $id . ' existiert nicht';
+            $location = '';
             $rowColor = '#FFC0C0'; //red
             if (@IPS_ObjectExists($id)) {
                 $name = IPS_GetName($id);
+                $location = IPS_GetLocation($id);
                 $rowColor = '#C0FFC0'; //light green
             }
             switch ($messageID) {
@@ -1616,6 +1513,7 @@ trait AM_ConfigurationForm
             $registeredMessages[] = [
                 'ObjectID'           => $id,
                 'Name'               => $name,
+                'VariableLocation'   => $location,
                 'MessageID'          => $messageID,
                 'MessageDescription' => $messageDescription,
                 'rowColor'           => $rowColor];
@@ -1628,91 +1526,57 @@ trait AM_ConfigurationForm
             'items'   => [
                 [
                     'type'    => 'Label',
-                    'caption' => 'Auslöser',
+                    'caption' => 'Kritische Auslöser',
                     'italic'  => true,
                     'bold'    => true
                 ],
                 [
-                    'type'  => 'RowLayout',
-                    'items' => [
-                        [
-                            'type'    => 'PopupButton',
-                            'caption' => 'Verknüpfung erstellen',
-                            'popup'   => [
-                                'caption' => 'Variablenverknüpfungen wirklich erstellen?',
-                                'items'   => [
+                    'type'    => 'PopupButton',
+                    'caption' => 'Aktueller Status',
+                    'popup'   => [
+                        'caption' => 'Aktueller Status',
+                        'items'   => [
+                            [
+                                'type'     => 'List',
+                                'name'     => 'CriticalVariableList',
+                                'caption'  => 'Kritische Auslöser',
+                                'rowCount' => 1,
+                                'add'      => false,
+                                'delete'   => true,
+                                'onDelete' => self::MODULE_PREFIX . '_DeleteVariableFromAttribute($id, "CriticalVariables", $CriticalVariableList["ObjectID"]);',
+                                'sort'     => [
+                                    'column'    => 'Name',
+                                    'direction' => 'ascending'
+                                ],
+                                'columns' => [
                                     [
-                                        'type'    => 'SelectCategory',
-                                        'name'    => 'LinkCategory',
-                                        'caption' => 'Kategorie',
-                                        'width'   => '610px'
+                                        'caption' => 'ID',
+                                        'name'    => 'ObjectID',
+                                        'width'   => '150px',
+                                        'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "CriticalVariablesConfigurationButton", "ID " . $CriticalVariableList["ObjectID"] . " bearbeiten", $CriticalVariableList["ObjectID"]);'
                                     ],
                                     [
-                                        'type'    => 'Button',
-                                        'caption' => 'Erstellen',
-                                        'onClick' => self::MODULE_PREFIX . '_CreateVariableLinks($id, $LinkCategory);'
+                                        'caption' => 'Name',
+                                        'name'    => 'Name',
+                                        'width'   => '300px',
                                     ],
                                     [
-                                        'type'    => 'ProgressBar',
-                                        'name'    => 'VariableLinkProgress',
-                                        'caption' => 'Fortschritt',
-                                        'minimum' => 0,
-                                        'maximum' => 100,
-                                        'visible' => false
-                                    ],
-                                    [
-                                        'type'    => 'Label',
-                                        'name'    => 'VariableLinkProgressInfo',
-                                        'caption' => '',
-                                        'visible' => false
+                                        'caption' => 'Objektbaum',
+                                        'name'    => 'VariableLocation',
+                                        'width'   => '700px'
                                     ]
                                 ]
+                            ],
+                            [
+                                'type'     => 'OpenObjectButton',
+                                'name'     => 'CriticalVariablesConfigurationButton',
+                                'caption'  => 'Bearbeiten',
+                                'visible'  => false,
+                                'objectID' => 0
                             ]
                         ]
-                    ]
-                ],
-                [
-                    'type'    => 'Label',
-                    'caption' => ' '
-                ],
-                [
-                    'type'    => 'Label',
-                    'caption' => 'Kritische Variablen',
-                    'italic'  => true,
-                    'bold'    => true
-                ],
-                [
-                    'type'     => 'List',
-                    'name'     => 'CriticalVariables',
-                    'delete'   => true,
-                    'onDelete' => self::MODULE_PREFIX . '_DeleteElementFromAttribute($id, "CriticalVariables", $CriticalVariables["ObjectID"]);',
-                    'rowCount' => $amountCriticalVariables,
-                    'sort'     => [
-                        'column'    => 'ObjectID',
-                        'direction' => 'ascending'
                     ],
-                    'columns' => [
-                        [
-                            'caption' => 'ID',
-                            'name'    => 'ObjectID',
-                            'width'   => '150px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "CriticalVariablesConfigurationButton", "ID " . $CriticalVariables["ObjectID"] . " aufrufen", $CriticalVariables["ObjectID"]);'
-                        ],
-                        [
-                            'caption' => 'Name',
-                            'name'    => 'Name',
-                            'width'   => '300px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "CriticalVariablesConfigurationButton", "ID " . $CriticalVariables["ObjectID"] . " aufrufen", $CriticalVariables["ObjectID"]);'
-                        ]
-                    ],
-                    'values' => $criticalVariables
-                ],
-                [
-                    'type'     => 'OpenObjectButton',
-                    'name'     => 'CriticalVariablesConfigurationButton',
-                    'caption'  => 'Aufrufen',
-                    'visible'  => false,
-                    'objectID' => 0
+                    'onClick' => self::MODULE_PREFIX . '_ListCriticalVariables($id);'
                 ],
                 [
                     'type'    => 'Label',
@@ -1721,8 +1585,8 @@ trait AM_ConfigurationForm
                 [
                     'type'    => 'Label',
                     'caption' => 'Registrierte Referenzen',
-                    'italic'  => true,
-                    'bold'    => true
+                    'bold'    => true,
+                    'italic'  => true
                 ],
                 [
                     'type'     => 'List',
@@ -1737,13 +1601,17 @@ trait AM_ConfigurationForm
                             'caption' => 'ID',
                             'name'    => 'ObjectID',
                             'width'   => '150px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredReferencesConfigurationButton", "ID " . $RegisteredReferences["ObjectID"] . " aufrufen", $RegisteredReferences["ObjectID"]);'
+                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredReferencesConfigurationButton", "ID " . $RegisteredReferences["ObjectID"] . " bearbeiten", $RegisteredReferences["ObjectID"]);'
                         ],
                         [
                             'caption' => 'Name',
                             'name'    => 'Name',
-                            'width'   => '300px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredReferencesConfigurationButton", "ID " . $RegisteredReferences["ObjectID"] . " aufrufen", $RegisteredReferences["ObjectID"]);'
+                            'width'   => '300px'
+                        ],
+                        [
+                            'caption' => 'Objektbaum',
+                            'name'    => 'VariableLocation',
+                            'width'   => '700px'
                         ]
                     ],
                     'values' => $registeredReferences
@@ -1751,7 +1619,7 @@ trait AM_ConfigurationForm
                 [
                     'type'     => 'OpenObjectButton',
                     'name'     => 'RegisteredReferencesConfigurationButton',
-                    'caption'  => 'Aufrufen',
+                    'caption'  => 'Bearbeiten',
                     'visible'  => false,
                     'objectID' => 0
                 ],
@@ -1762,8 +1630,8 @@ trait AM_ConfigurationForm
                 [
                     'type'    => 'Label',
                     'caption' => 'Registrierte Nachrichten',
-                    'italic'  => true,
-                    'bold'    => true
+                    'bold'    => true,
+                    'italic'  => true
                 ],
                 [
                     'type'     => 'List',
@@ -1778,13 +1646,17 @@ trait AM_ConfigurationForm
                             'caption' => 'ID',
                             'name'    => 'ObjectID',
                             'width'   => '150px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredMessagesConfigurationButton", "ID " . $RegisteredMessages["ObjectID"] . " aufrufen", $RegisteredMessages["ObjectID"]);'
+                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredMessagesConfigurationButton", "ID " . $RegisteredMessages["ObjectID"] . " bearbeiten", $RegisteredMessages["ObjectID"]);'
                         ],
                         [
                             'caption' => 'Name',
                             'name'    => 'Name',
-                            'width'   => '300px',
-                            'onClick' => self::MODULE_PREFIX . '_ModifyButton($id, "RegisteredMessagesConfigurationButton", "ID " . $RegisteredMessages["ObjectID"] . " aufrufen", $RegisteredMessages["ObjectID"]);'
+                            'width'   => '300px'
+                        ],
+                        [
+                            'caption' => 'Objektbaum',
+                            'name'    => 'VariableLocation',
+                            'width'   => '700px'
                         ],
                         [
                             'caption' => 'Nachrichten ID',
@@ -1802,7 +1674,7 @@ trait AM_ConfigurationForm
                 [
                     'type'     => 'OpenObjectButton',
                     'name'     => 'RegisteredMessagesConfigurationButton',
-                    'caption'  => 'Aufrufen',
+                    'caption'  => 'Bearbeiten',
                     'visible'  => false,
                     'objectID' => 0
                 ]
@@ -1857,5 +1729,70 @@ trait AM_ConfigurationForm
         ];
 
         return json_encode($form);
+    }
+
+    ######### Private
+
+    /**
+     * Counts the rows of a list.
+     *
+     * @param string $ListName
+     * @return int
+     * @throws Exception
+     */
+    private function CountRows(string $ListName): int
+    {
+        $elements = json_decode($this->ReadPropertyString($ListName), true);
+        $amountRows = count($elements) + 1;
+        if ($amountRows == 1) {
+            $amountRows = 3;
+        }
+        return $amountRows;
+    }
+
+    /**
+     * Gets the colors for all rows of a list.
+     *
+     * @param string $ListName
+     * @return array
+     * @throws Exception
+     */
+    private function GetListValues(string $ListName): array
+    {
+        $values = [];
+        if ($ListName == 'VariableLinkList') {
+            $name = 'TriggerList';
+        } else {
+            $name = $ListName;
+        }
+        $elements = json_decode($this->ReadPropertyString($name), true);
+        foreach ($elements as $element) {
+            $rowColor = '#C0FFC0'; //light green
+            if (!$element['Use']) {
+                $rowColor = '#DFDFDF'; //grey
+            }
+            $id = $element['ID'];
+            if ($id <= 1 || !@IPS_ObjectExists($id)) {
+                $rowColor = '#FFC0C0'; //red
+            }
+            if ($ListName == 'VariableLinkList') {
+                $values[] = ['SensorID' => $element['ID'], 'Designation' => $element['Designation'], 'Comment' => $element['Comment']];
+            } else {
+                $values[] = ['rowColor' => $rowColor];
+            }
+        }
+        return $values;
+    }
+
+    /**
+     * Counts the elements of a list.
+     *
+     * @param string $ListName
+     * @return int
+     * @throws Exception
+     */
+    private function CountElements(string $ListName): int
+    {
+        return count(json_decode($this->ReadPropertyString($ListName), true));
     }
 }

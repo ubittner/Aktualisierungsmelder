@@ -20,9 +20,18 @@ Der Nutzer stimmt den o.a. Bedingungen, sowie den Lizenzbedingungen ausdrücklic
 ### 1. Modulbeschreibung
 
 Dieses Modul überwacht Variablen auf Aktualisierung.
+Die Prüfung des Aktualisierungszeitraums ist für maximal 21 Tage möglich.
 
-Das Modul ermittelt immer den aktuellen Status.  
-Benachrichtigungen werden nur ausgelöst, wenn das Modul aktiv ist.
+#### Verhalten bei Neustart:  
+
+* Sofortige Prüfung  
+Alle Variablen werden sofort auf eine überfällige Aktualisierung geprüft.  
+
+
+* Prüfung zum nächsten Prüfzeitpunkt    
+Wenn bereits eine zuvor überfällige Variable `Alarm` sich wieder aktualisiert `OK`, dann wird die Statusliste um diese Variable aktualisiert.  
+Sollten zu diesem Zeitpunkt keine weiteren Variablen mehr überfällig sein, dann wird ebenfalls der Gesamtstaus auf `OK` gesetzt.
+Wird eine neue Variable überfällig, so wird diese erst zum nächsten Prüfzeitpunkt berücksichtigt, welcher der vom Benutzer festgelegte Aktualisierungszeitraum ist.
 
 ### 2. Voraussetzungen
 
@@ -40,7 +49,7 @@ Auslöser------------->+ Status                           |
 
 ### 4. Auslöser
 
-Das Modul Aktualisierungsmelder reagiert auf verschiedene Auslöser.
+Das Modul Aktualisierungsmelder reagiert auf verschiedene Variablen als Auslöser.
 
 ### 5. PHP-Befehlsreferenz
 
@@ -50,8 +59,7 @@ Das Modul Aktualisierungsmelder reagiert auf verschiedene Auslöser.
 AM_UpdateStatus(integer INSTANCE_ID);
 ```
 
-Konnte der jeweilige Befehl erfolgreich ausgeführt werden, liefert er als Ergebnis:
-**TRUE** für einen Alarm, andernfalls **FALSE**
+Liefert keinen Rückgabewert.
 
 | Parameter     | Beschreibung   | 
 |---------------|----------------|

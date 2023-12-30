@@ -4,7 +4,7 @@
  * @project       Aktualisierungsmelder/Aktualisierungsmelder/
  * @file          module.php
  * @author        Ulrich Bittner
- * @copyright     2022 Ulrich Bittner
+ * @copyright     2023 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
@@ -46,16 +46,17 @@ class Aktualisierungsmelder extends IPSModule
 
         //Sensor list
         $this->RegisterPropertyBoolean('EnableAlarm', true);
-        $this->RegisterPropertyString('SensorListStatusTextAlarm', '🔴  Aktualisierung überfällig');
+        $this->RegisterPropertyString('SensorListStatusTextAlarm', '🔴 Aktualisierung überfällig');
         $this->RegisterPropertyBoolean('EnableOK', true);
-        $this->RegisterPropertyString('SensorListStatusTextOK', '🟢  OK');
+        $this->RegisterPropertyString('SensorListStatusTextOK', '🟢 OK');
+
+        //Update period
+        $this->RegisterPropertyInteger('TimeValue', 120);
+        $this->RegisterPropertyInteger('TimeBase', 1);
+        $this->RegisterPropertyInteger('StartUpCheckMode', 1);
 
         //Trigger list
         $this->RegisterPropertyString('TriggerList', '[]');
-
-        //Automatic status update
-        $this->RegisterPropertyBoolean('AutomaticStatusUpdate', false);
-        $this->RegisterPropertyInteger('StatusUpdateInterval', 60);
 
         //Notification
         $this->RegisterPropertyString('NotificationAlarm', '[]');
@@ -66,12 +67,12 @@ class Aktualisierungsmelder extends IPSModule
         $this->RegisterPropertyString('MailerNotification', '[]');
 
         //Visualisation
-        $this->RegisterPropertyBoolean('EnableActive', false);
+        $this->RegisterPropertyBoolean('EnableActive', true);
         $this->RegisterPropertyBoolean('EnableStatus', true);
         $this->RegisterPropertyBoolean('EnableTriggeringDetector', true);
-        $this->RegisterPropertyBoolean('EnableLastUpdate', true);
+        $this->RegisterPropertyBoolean('EnableLastCheck', true);
         $this->RegisterPropertyBoolean('EnableUpdateStatus', true);
-        $this->RegisterPropertyBoolean('EnableAlarmSensorList', true);
+        $this->RegisterPropertyBoolean('EnableStatusList', true);
 
         ########## Variables
 
@@ -100,37 +101,28 @@ class Aktualisierungsmelder extends IPSModule
             IPS_SetIcon($this->GetIDForIdent('TriggeringDetector'), 'Eyes');
         }
 
-        //Last update
-        $id = @$this->GetIDForIdent('LastUpdate');
-        $this->RegisterVariableString('LastUpdate', 'Letzte Aktualisierung', '', 40);
+        //Last check
+        $id = @$this->GetIDForIdent('LastCheck');
+        $this->RegisterVariableString('LastCheck', 'Letzte Überprüfung', '', 40);
         if (!$id) {
-            IPS_SetIcon($this->GetIDForIdent('LastUpdate'), 'Clock');
+            IPS_SetIcon($this->GetIDForIdent('LastCheck'), 'Clock');
         }
 
-        //Update status
-        $profile = self::MODULE_PREFIX . '.' . $this->InstanceID . '.UpdateStatus';
-        if (!IPS_VariableProfileExists($profile)) {
-            IPS_CreateVariableProfile($profile, 1);
-        }
-        IPS_SetVariableProfileAssociation($profile, 0, 'Aktualisieren', 'Repeat', -1);
-        $this->RegisterVariableInteger('UpdateStatus', 'Aktualisierung', $profile, 50);
-        $this->EnableAction('UpdateStatus');
-
-        //Alarm sensor list
-        $id = @$this->GetIDForIdent('AlarmSensorList');
-        $this->RegisterVariableString('AlarmSensorList', 'Aktualisierungsmelder', 'HTMLBox', 60);
+        //Status list
+        $id = @$this->GetIDForIdent('StatusList');
+        $this->RegisterVariableString('StatusList', 'Statusliste', 'HTMLBox', 50);
         if (!$id) {
-            IPS_SetIcon($this->GetIDForIdent('AlarmSensorList'), 'Database');
+            IPS_SetIcon($this->GetIDForIdent('StatusList'), 'Database');
         }
 
         ########## Attributes
 
+        $this->RegisterAttributeString('LastStatusList', '[]');
         $this->RegisterAttributeString('CriticalVariables', '[]');
 
         ########## Timer
 
-        //Status update
-        $this->RegisterTimer('StatusUpdate', 0, self::MODULE_PREFIX . '_UpdateStatus(' . $this->InstanceID . ');');
+        $this->RegisterTimer('UpdateStatus', 0, self::MODULE_PREFIX . '_UpdateStatus(' . $this->InstanceID . ', 0);');
     }
 
     public function ApplyChanges()
@@ -168,15 +160,13 @@ class Aktualisierungsmelder extends IPSModule
             }
         }
 
-        $triggerVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
-        foreach ($triggerVariables as $variable) {
-            if (!$variable['Use']) {
-                continue;
-            }
-            $id = $variable['VariableID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
+        foreach (json_decode($this->ReadPropertyString('TriggerList'), true) as $variable) {
+            $id = $variable['ID'];
+            if ($id > 1 && @IPS_ObjectExists($id)) {
                 $this->RegisterReference($id);
-                $this->RegisterMessage($id, VM_UPDATE);
+                if ($variable['Use']) {
+                    $this->RegisterMessage($id, VM_UPDATE);
+                }
             }
         }
 
@@ -184,19 +174,10 @@ class Aktualisierungsmelder extends IPSModule
         IPS_SetHidden($this->GetIDForIdent('Active'), !$this->ReadPropertyBoolean('EnableActive'));
         IPS_SetHidden($this->GetIDForIdent('Status'), !$this->ReadPropertyBoolean('EnableStatus'));
         IPS_SetHidden($this->GetIDForIdent('TriggeringDetector'), !$this->ReadPropertyBoolean('EnableTriggeringDetector'));
-        IPS_SetHidden($this->GetIDForIdent('LastUpdate'), !$this->ReadPropertyBoolean('EnableLastUpdate'));
-        IPS_SetHidden($this->GetIDForIdent('UpdateStatus'), !$this->ReadPropertyBoolean('EnableUpdateStatus'));
-        IPS_SetHidden($this->GetIDForIdent('AlarmSensorList'), !$this->ReadPropertyBoolean('EnableAlarmSensorList'));
+        IPS_SetHidden($this->GetIDForIdent('LastCheck'), !$this->ReadPropertyBoolean('EnableLastCheck'));
+        IPS_SetHidden($this->GetIDForIdent('StatusList'), !$this->ReadPropertyBoolean('EnableStatusList'));
 
-        //Set automatic status update timer
-        $milliseconds = 0;
-        if ($this->ReadPropertyBoolean('AutomaticStatusUpdate')) {
-            $milliseconds = $this->ReadPropertyInteger('StatusUpdateInterval') * 1000;
-        }
-        $this->SetTimerInterval('StatusUpdate', $milliseconds);
-
-        //Update status
-        $this->UpdateStatus();
+        $this->StartUpCheck();
     }
 
     public function Destroy()
@@ -205,7 +186,7 @@ class Aktualisierungsmelder extends IPSModule
         parent::Destroy();
 
         //Delete profiles
-        $profiles = ['Status', 'UpdateStatus'];
+        $profiles = ['Status'];
         foreach ($profiles as $profile) {
             $profileName = self::MODULE_PREFIX . '.' . $this->InstanceID . '.' . $profile;
             if (@IPS_VariableProfileExists($profileName)) {
@@ -229,23 +210,31 @@ class Aktualisierungsmelder extends IPSModule
                 //$Data[3] = timestamp actual value
                 //$Data[4] = timestamp value changed
                 //$Data[5] = timestamp last value
-                $this->UpdateStatus();
+
+                $this->UpdateStatus($SenderID);
                 break;
 
         }
     }
 
+    /**
+     * Creates a new specified module instance.
+     *
+     * @param string $ModuleName
+     * @return void
+     */
     public function CreateInstance(string $ModuleName): void
     {
         $this->SendDebug(__FUNCTION__, 'Modul: ' . $ModuleName, 0);
         switch ($ModuleName) {
             case 'WebFront':
-            case 'WebFrontPush':
                 $guid = self::WEBFRONT_MODULE_GUID;
+                $name = 'WebFront';
                 break;
 
             case 'Mailer':
                 $guid = self::MAILER_MODULE_GUID;
+                $name = 'Mailer';
                 break;
 
             default:
@@ -254,7 +243,7 @@ class Aktualisierungsmelder extends IPSModule
         $this->SendDebug(__FUNCTION__, 'Guid: ' . $guid, 0);
         $id = @IPS_CreateInstance($guid);
         if (is_int($id)) {
-            IPS_SetName($id, 'Mailer');
+            IPS_SetName($id, $name);
             $infoText = 'Instanz mit der ID ' . $id . ' wurde erfolgreich erstellt!';
         } else {
             $infoText = 'Instanz konnte nicht erstellt werden!';
@@ -263,7 +252,19 @@ class Aktualisierungsmelder extends IPSModule
         $this->UpdateFormField('InfoMessageLabel', 'caption', $infoText);
     }
 
-    public function DeleteElementFromAttribute(string $AttributeName, int $VariableID): void
+    /**
+     * Deletes a variable from the specified attribute list.
+     *
+     * @param string $AttributeName
+     * Name of the attribute
+     *
+     * @param int $VariableID
+     * Variable to be deleted
+     *
+     * @return void
+     * @throws Exception
+     */
+    public function DeleteVariableFromAttribute(string $AttributeName, int $VariableID): void
     {
         $elements = json_decode($this->ReadAttributeString($AttributeName), true);
         foreach ($elements as $key => $element) {
@@ -275,7 +276,13 @@ class Aktualisierungsmelder extends IPSModule
         $this->WriteAttributeString($AttributeName, json_encode($elements));
     }
 
-    public function UIShowMessage(string $Message): void
+    /**
+     * Shows a message in the UI.
+     *
+     * @param string $Message
+     * @return void
+     */
+    public function ShowUIMessage(string $Message): void
     {
         $this->UpdateFormField('InfoMessage', 'visible', true);
         $this->UpdateFormField('InfoMessageLabel', 'caption', $Message);
@@ -285,15 +292,14 @@ class Aktualisierungsmelder extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
-        switch ($Ident) {
-            case 'Active':
-                $this->SetValue($Ident, $Value);
-                break;
-
-            case 'UpdateStatus':
-                $this->UpdateStatus();
-                break;
-
+        if ($Ident == 'Active') {
+            $this->SetValue($Ident, $Value);
+            if ($Value) {
+                //StartUpCheck
+                $this->StartUpCheck();
+            } else {
+                $this->SetTimerInterval('UpdateStatus', 0);
+            }
         }
     }
 
@@ -304,6 +310,13 @@ class Aktualisierungsmelder extends IPSModule
         $this->ApplyChanges();
     }
 
+    /**
+     * Checks for maintenance.
+     *
+     * @return bool
+     * false =  no maintenance,
+     * true =   maintenance
+     */
     private function CheckMaintenance(): bool
     {
         $result = false;
@@ -316,6 +329,7 @@ class Aktualisierungsmelder extends IPSModule
 
     /**
      * Attempts to set a semaphore and repeats this up to 100 times if unsuccessful.
+     *
      * @param string $Name
      * @return bool
      */
@@ -334,11 +348,29 @@ class Aktualisierungsmelder extends IPSModule
 
     /**
      * Unlocks a semaphore.
+     *
      * @param string $Name
      */
     private function UnlockSemaphore(string $Name): void
     {
         IPS_SemaphoreLeave(self::MODULE_PREFIX . '_' . $this->InstanceID . '_Semaphore_' . $Name);
         $this->SendDebug(__FUNCTION__, 'Semaphore unlocked', 0);
+    }
+
+    private function StartUpCheck(): void
+    {
+        if ($this->CheckMaintenance()) {
+            $this->SetTimerInterval('UpdateStatus', 0);
+        }
+        switch ($this->ReadPropertyInteger('StartUpCheckMode')) {
+            case 0: //Immediate check
+                $this->UpdateStatus();
+                break;
+
+            case 1: //Check at the next update period
+                $this->SetTimerInterval('UpdateStatus', $this->GetWatchTime() * 1000);
+                break;
+
+        }
     }
 }
