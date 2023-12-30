@@ -1,10 +1,10 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper/
  * @file          AM_MonitoredVariables.php
  * @author        Ulrich Bittner
- * @copyright     2022 Ulrich Bittner
+ * @copyright     2023 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
@@ -15,81 +15,35 @@ declare(strict_types=1);
 trait AM_MonitoredVariables
 {
     /**
-     * Applies the determined variables to the trigger list.
+     * Checks the time value. Restricted to 21 days maximum.
      *
-     * @param object $ListValues
-     * false =  don't overwrite
-     * true =   overwrite
-     *
+     * @param int $TimeBase
      * @return void
-     * @throws ReflectionException
-     * @throws Exception
      */
-    public function ApplyDeterminedVariables(object $ListValues): void
+    public function CheckTimeValue(int $TimeBase): void
     {
-        $determinedVariables = [];
-        $reflection = new ReflectionObject($ListValues);
-        $property = $reflection->getProperty('array');
-        $property->setAccessible(true);
-        $variables = $property->getValue($ListValues);
-        foreach ($variables as $variable) {
-            if (!$variable['Use']) {
-                continue;
-            }
-            $id = $variable['ID'];
-            $name = @IPS_GetName($id);
-            $address = '';
-            $parent = @IPS_GetParent($id);
-            if ($parent > 1 && @IPS_ObjectExists($parent)) {
-                $parentObject = @IPS_GetObject($parent);
-                if ($parentObject['ObjectType'] == 1) { //1 = instance
-                    $name = strstr(@IPS_GetName($parent), ':', true);
-                    if (!$name) {
-                        $name = @IPS_GetName($parent);
-                    }
-                    $address = @IPS_GetProperty($parent, 'Address');
-                    if (!$address) {
-                        $address = '';
-                    }
-                }
-            }
-            $determinedVariables[] = [
-                'Use'                => true,
-                'VariableID'         => $id,
-                'Designation'        => $name,
-                'Comment'            => $address,
-                'UpdatePeriod'       => 3];
+        switch ($TimeBase) {
+            case 1: //Minutes
+                $minimum = 1;
+                $maximum = 30240;
+                break;
+
+            case 2: //Hours
+                $minimum = 1;
+                $maximum = 504;
+                break;
+
+            case 3: //Days
+                $minimum = 1;
+                $maximum = 21;
+                break;
+
+            default: //Seconds
+                $minimum = 10;
+                $maximum = 1814400;
         }
-        //Get already listed variables
-        $listedVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
-        foreach ($determinedVariables as $determinedVariable) {
-            $determinedVariableID = $determinedVariable['VariableID'];
-            if ($determinedVariableID > 1 && @IPS_ObjectExists($determinedVariableID)) {
-                //Check variable id with already listed variable ids
-                $add = true;
-                foreach ($listedVariables as $listedVariable) {
-                    $listedVariableID = $listedVariable['VariableID'];
-                    if ($listedVariableID > 1 && @IPS_ObjectExists($determinedVariableID)) {
-                        if ($determinedVariableID == $listedVariableID) {
-                            $add = false;
-                        }
-                    }
-                }
-                //Add new variable to already listed variables
-                if ($add) {
-                    $listedVariables[] = $determinedVariable;
-                }
-            }
-        }
-        if (empty($determinedVariables)) {
-            return;
-        }
-        //Sort variables by name
-        array_multisort(array_column($listedVariables, 'Designation'), SORT_ASC, $listedVariables);
-        @IPS_SetProperty($this->InstanceID, 'TriggerList', json_encode(array_values($listedVariables)));
-        if (@IPS_HasChanges($this->InstanceID)) {
-            @IPS_ApplyChanges($this->InstanceID);
-        }
+        $this->UpdateFormfield('TimeValue', 'minimum', $minimum);
+        $this->UpdateFormfield('TimeValue', 'maximum', $maximum);
     }
 
     /**
@@ -107,7 +61,7 @@ trait AM_MonitoredVariables
             $profileSelection = true;
         }
         //Custom ident
-        if ($VariableDeterminationType == 10) {
+        if ($VariableDeterminationType == 8) {
             $this->UpdateFormfield('VariableDeterminationValue', 'caption', 'Identifikator');
             $determinationValue = true;
         }
@@ -140,7 +94,8 @@ trait AM_MonitoredVariables
         $passedVariables = 0;
         foreach (@IPS_GetVariableList() as $variable) {
             switch ($DeterminationType) {
-                case 0: //Profile: Select profile
+                //Select profile
+                case 0:
                     if ($ProfileSelection == '') {
                         $infoText = 'Abbruch, es wurde kein Profil ausgewählt!';
                         $this->UpdateFormField('InfoMessage', 'visible', true);
@@ -151,22 +106,19 @@ trait AM_MonitoredVariables
                     }
                     break;
 
-                case 1: //Profile: ~Battery
-                case 2: //Profile: ~Battery.Reversed
-                case 3: //Profile: BATM.Battery.Boolean
-                case 4: //Profile: BATM.Battery.Boolean.Reversed
-                case 5: //Profile: BATM.Battery.Integer
-                case 6: //Profile: BATM.Battery.Integer.reversed
-                    $determineProfile = true;
-                    break;
-
-                case 7: //Ident: LOWBAT
-                case 8: //Ident: LOW_BAT
-                case 9: //Ident: LOWBAT, LOW_BAT
+                    //Various idents
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
                     $determineIdent = true;
                     break;
 
-                case 10: //Custom Ident
+                    //Custom ident
+                case 8:
                     if ($DeterminationValue == '') {
                         $infoText = 'Abbruch, es wurde kein Identifikator angegeben!';
                         $this->UpdateFormField('InfoMessage', 'visible', true);
@@ -185,75 +137,55 @@ trait AM_MonitoredVariables
             $this->UpdateFormField('VariableDeterminationProgressInfo', 'caption', $passedVariables . '/' . $maximumVariables);
             IPS_Sleep(10);
 
-            ##### Profile
-
             //Determine via profile
             if ($determineProfile && !$determineIdent) {
-                switch ($DeterminationType) {
-
-                    case 0: //Select profile
-                        $profileNames = $ProfileSelection;
-                        break;
-
-                    case 1:
-                        $profileNames = '~Battery';
-                        break;
-
-                    case 2:
-                        $profileNames = '~Battery.Reversed';
-                        break;
-
-                    case 3:
-                        $profileNames = 'BATM.Battery.Boolean';
-                        break;
-
-                    case 4:
-                        $profileNames = 'BATM.Battery.Boolean.Reversed';
-                        break;
-
-                    case 5:
-                        $profileNames = 'BATM.Battery.Integer';
-                        break;
-
-                    case 6:
-                        $profileNames = 'BATM.Battery.Integer.Reversed';
-                        break;
-
+                if ($DeterminationType == 0) {
+                    $profileName = $ProfileSelection;
                 }
-                if (isset($profileNames)) {
-                    $profileNames = str_replace(' ', '', $profileNames);
-                    $profileNames = explode(',', $profileNames);
-                    foreach ($profileNames as $profileName) {
-                        $variableData = IPS_GetVariable($variable);
-                        if ($variableData['VariableCustomProfile'] == $profileName || $variableData['VariableProfile'] == $profileName) {
-                            $location = @IPS_GetLocation($variable);
-                            $determinedVariables[] = [
-                                'Use'      => true,
-                                'ID'       => $variable,
-                                'Location' => $location];
-                        }
+                if (isset($profileName)) {
+                    $variableData = IPS_GetVariable($variable);
+                    if ($variableData['VariableCustomProfile'] == $profileName || $variableData['VariableProfile'] == $profileName) {
+                        $location = @IPS_GetLocation($variable);
+                        $determinedVariables[] = [
+                            'Use'      => false,
+                            'ID'       => $variable,
+                            'Location' => $location];
                     }
                 }
             }
 
-            ##### Ident
-
             //Determine via ident
             if ($determineIdent && !$determineProfile) {
                 switch ($DeterminationType) {
-                    case 7:
+                    case 1:
                         $objectIdents = 'LOWBAT';
                         break;
 
-                    case 8:
+                    case 2:
                         $objectIdents = 'LOW_BAT';
                         break;
 
-                    case 9:
+                    case 3:
                         $objectIdents = 'LOWBAT, LOW_BAT';
                         break;
 
-                    case 10: //Custom ident
+                    case 4:
+                        $objectIdents = 'STATE';
+                        break;
+
+                    case 5:
+                        $objectIdents = 'MOTION';
+                        break;
+
+                    case 6:
+                        $objectIdents = 'SMOKE_DETECTOR_ALARM_STATUS';
+                        break;
+
+                    case 7:
+                        $objectIdents = 'ALARMSTATE';
+                        break;
+
+                    case 8: //Custom ident
                         $objectIdents = $DeterminationValue;
                         break;
 
@@ -266,7 +198,7 @@ trait AM_MonitoredVariables
                         if ($object['ObjectIdent'] == $objectIdent) {
                             $location = @IPS_GetLocation($variable);
                             $determinedVariables[] = [
-                                'Use'      => true,
+                                'Use'      => false,
                                 'ID'       => $variable,
                                 'Location' => $location];
                         }
@@ -278,7 +210,7 @@ trait AM_MonitoredVariables
         //Get already listed variables
         $listedVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
         foreach ($listedVariables as $listedVariable) {
-            $listedVariableID = $listedVariable['VariableID'];
+            $listedVariableID = $listedVariable['ID'];
             if ($listedVariableID > 1 && @IPS_ObjectExists($listedVariableID)) {
                 foreach ($determinedVariables as $key => $determinedVariable) {
                     $determinedVariableID = $determinedVariable['ID'];
@@ -304,36 +236,154 @@ trait AM_MonitoredVariables
             return;
         }
         $determinedVariables = array_values($determinedVariables);
-        $this->UpdateFormField('DeterminedVariableList', 'visible', true);
         $this->UpdateFormField('DeterminedVariableList', 'rowCount', count($determinedVariables));
         $this->UpdateFormField('DeterminedVariableList', 'values', json_encode($determinedVariables));
-        $this->UpdateFormField('OverwriteVariableProfiles', 'visible', true);
+        $this->UpdateFormField('DeterminedVariableList', 'visible', true);
         $this->UpdateFormField('ApplyPreTriggerValues', 'visible', true);
     }
 
     /**
-     * Creates links of monitored variables.
+     * Adds the selected variables to the trigger list.
      *
-     * @param int $LinkCategory
+     * @param object $ListValues
+     *
+     * @return void
+     * @throws ReflectionException
+     * @throws Exception
+     */
+    public function AddSelectedVariables(object $ListValues): void
+    {
+        $determinedVariables = [];
+        $reflection = new ReflectionObject($ListValues);
+        $property = $reflection->getProperty('array');
+        $property->setAccessible(true);
+        $variables = $property->getValue($ListValues);
+        foreach ($variables as $variable) {
+            if (!$variable['Use']) {
+                continue;
+            }
+            $id = $variable['ID'];
+            $name = @IPS_GetName($id);
+            $address = '';
+            $parent = @IPS_GetParent($id);
+            if ($parent > 1 && @IPS_ObjectExists($parent)) {
+                $parentObject = @IPS_GetObject($parent);
+                if ($parentObject['ObjectType'] == 1) { //1 = instance
+                    $name = strstr(@IPS_GetName($parent), ':', true);
+                    if (!$name) {
+                        $name = @IPS_GetName($parent);
+                    }
+                    $address = @IPS_GetProperty($parent, 'Address');
+                    if (!$address) {
+                        $address = '';
+                    }
+                }
+            }
+            $determinedVariables[] = [
+                'Use'         => true,
+                'ID'          => $id,
+                'Designation' => $name,
+                'Comment'     => $address
+            ];
+        }
+        //Get already listed variables
+        $listedVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
+        foreach ($determinedVariables as $determinedVariable) {
+            $determinedVariableID = $determinedVariable['ID'];
+            if ($determinedVariableID > 1 && @IPS_ObjectExists($determinedVariableID)) {
+                //Check variable id with already listed variable ids
+                $add = true;
+                foreach ($listedVariables as $listedVariable) {
+                    $listedVariableID = $listedVariable['ID'];
+                    if ($listedVariableID > 1 && @IPS_ObjectExists($listedVariableID)) {
+                        if ($determinedVariableID == $listedVariableID) {
+                            $add = false;
+                        }
+                    }
+                }
+                //Add new variable to already listed variables
+                if ($add) {
+                    $listedVariables[] = $determinedVariable;
+                }
+            }
+        }
+        if (empty($determinedVariables)) {
+            return;
+        }
+        //Sort variables by name
+        array_multisort(array_column($listedVariables, 'Designation'), SORT_ASC, $listedVariables);
+        @IPS_SetProperty($this->InstanceID, 'TriggerList', json_encode(array_values($listedVariables)));
+        if (@IPS_HasChanges($this->InstanceID)) {
+            @IPS_ApplyChanges($this->InstanceID);
+        }
+    }
+
+    /**
+     * Lists the actual variable states in the configuration form.
+     *
      * @return void
      * @throws Exception
      */
-    public function CreateVariableLinks(int $LinkCategory): void
+    public function ListActualVariableStates(): void
     {
-        $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
+        $this->UpdateFormField('ActualVariableStatesConfigurationButton', 'visible', false);
+        $actualVariableValues = [];
+        $values = $this->GetMonitoredVariableValues();
+        foreach (json_decode($values, true) as $variable) {
+            $actualVariableValues[] = [
+                'ActualStatus' => $variable['StatusText'],
+                'ID'           => $variable['ID'],
+                'Designation'  => $variable['Name'],
+                'Comment'      => $variable['Comment'],
+                'LastUpdate'   => $variable['LastUpdate'],
+                'OverdueSince' => $variable['OverdueSince']
+            ];
+        }
+        $amount = count($actualVariableValues);
+        if ($amount == 0) {
+            $amount = 1;
+        }
+        $this->UpdateFormField('ActualVariableStates', 'rowCount', $amount);
+        $this->UpdateFormField('ActualVariableStates', 'values', json_encode($actualVariableValues));
+        $this->UpdateFormField('ActualVariableStates', 'visible', true);
+    }
+
+    /**
+     * Creates links of the selected monitored variables.
+     *
+     * @param int $LinkCategory
+     * @param object $ListValues
+     * @return void
+     * @throws ReflectionException
+     */
+    public function CreateVariableLinks(int $LinkCategory, object $ListValues): void
+    {
         if ($LinkCategory == 1 || @!IPS_ObjectExists($LinkCategory)) {
-            $this->UIShowMessage('Abbruch, bitte wählen Sie eine Kategorie aus!');
+            $this->ShowUIMessage('Abbruch, bitte wählen Sie eine Kategorie aus!');
             return;
         }
-        //Get all monitored variables
-        $monitoredVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
-        $maximumVariables = count($monitoredVariables);
+        $reflection = new ReflectionObject($ListValues);
+        $property = $reflection->getProperty('array');
+        $property->setAccessible(true);
+        $variables = $property->getValue($ListValues);
+        $amountVariables = 0;
+        foreach ($variables as $variable) {
+            if ($variable['Use']) {
+                $amountVariables++;
+            }
+        }
+        if ($amountVariables == 0) {
+            $this->UpdateFormField('InfoMessage', 'visible', true);
+            $this->UpdateFormField('InfoMessageLabel', 'caption', 'Es wurden keine Variablen ausgewählt!');
+            return;
+        }
+        $maximumVariables = $amountVariables;
         $this->UpdateFormField('VariableLinkProgress', 'minimum', 0);
         $this->UpdateFormField('VariableLinkProgress', 'maximum', $maximumVariables);
         $passedVariables = 0;
         $targetIDs = [];
         $i = 0;
-        foreach ($monitoredVariables as $variable) {
+        foreach ($variables as $variable) {
             if ($variable['Use']) {
                 $passedVariables++;
                 $this->UpdateFormField('VariableLinkProgress', 'visible', true);
@@ -341,7 +391,7 @@ trait AM_MonitoredVariables
                 $this->UpdateFormField('VariableLinkProgressInfo', 'visible', true);
                 $this->UpdateFormField('VariableLinkProgressInfo', 'caption', $passedVariables . '/' . $maximumVariables);
                 IPS_Sleep(200);
-                $id = $variable['VariableID'];
+                $id = $variable['SensorID'];
                 if ($id > 1 && @IPS_ObjectExists($id)) {
                     $targetIDs[$i] = ['name' => $variable['Designation'], 'targetID' => $id];
                     $i++;
@@ -406,161 +456,139 @@ trait AM_MonitoredVariables
         }
         $this->UpdateFormField('VariableLinkProgress', 'visible', false);
         $this->UpdateFormField('VariableLinkProgressInfo', 'visible', false);
-        $this->UIShowMessage('Die Variablenverknüpfungen wurden erfolgreich erstellt!');
+        $infoText = 'Die Variablenverknüpfung wurde erfolgreich erstellt!';
+        if ($amountVariables > 1) {
+            $infoText = 'Die Variablenverknüpfungen wurden erfolgreich erstellt!';
+        }
+        $this->ShowUIMessage($infoText);
     }
 
     /**
-     * Restes the attribute for critical variables.
+     * Lists the critical variables in the configuration form.
      *
      * @return void
      * @throws Exception
      */
-    public function ResetCriticalVariables(): void
+    public function ListCriticalVariables(): void
     {
-        $this->WriteAttributeString('CriticalVariables', '[]');
+        $this->UpdateFormField('CriticalVariablesConfigurationButton', 'visible', false);
+        $criticalVariableListValue = [];
+        $criticalVariables = json_decode($this->ReadAttributeString('CriticalVariables'), true);
+        $amount = count($criticalVariables);
+        if ($amount == 0) {
+            $amount = 1;
+        }
+        if (is_array($criticalVariables)) {
+            foreach ($criticalVariables as $variable) {
+                $criticalVariableListValue[] = [
+                    'ObjectID'         => $variable,
+                    'Name'             => IPS_GetName($variable),
+                    'VariableLocation' => IPS_GetLocation($variable)];
+            }
+        }
+        $this->UpdateFormField('CriticalVariableList', 'rowCount', $amount);
+        $this->UpdateFormField('CriticalVariableList', 'values', json_encode($criticalVariableListValue));
     }
 
     /**
-     * Updates the status.
+     * Updates the status of one or all monitored variables.
      *
-     * @return bool
-     * false    = OK
-     * true     = Alarm
-     *
+     * @param int $VariableID
+     * @return void
      * @throws Exception
      */
-    public function UpdateStatus(): bool
+    public function UpdateStatus(int $VariableID = 0): void
     {
         $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
+        if ($this->CheckMaintenance()) {
+            return;
+        }
         //Enter semaphore
         if (!$this->LockSemaphore('Update')) {
             $this->SendDebug(__FUNCTION__, 'Abort, Semaphore reached!', 0);
             $this->UnlockSemaphore('Update');
-            return false;
+            return;
         }
-        if (!$this->CheckForExistingVariables()) {
-            $this->UnlockSemaphore('Update');
-            return false;
-        }
-
-        ##### Update overall status
-
-        $variables = json_decode($this->GetMonitoredVariables(), true);
-        $actualOverallStatus = false;
-        foreach ($variables as $variable) {
-            if ($variable['ActualStatus'] == 1) { //1 = alarm
-                $actualOverallStatus = true;
-            }
-        }
-        if ($this->GetValue('Status') != $actualOverallStatus) {
-            $this->SetValue('Status', $actualOverallStatus);
-        }
-
-        $this->SetValue('LastUpdate', date('d.m.Y H:i:s'));
-
-        ##### Update overview list for WebFront
-
-        $string = '';
-        if ($this->ReadPropertyBoolean('EnableAlarmSensorList')) {
-            $string .= "<table style='width: 100%; border-collapse: collapse;'>";
-            $string .= '<tr><td><b>Status</b></td><td><b>Name</b></td><td><b>Bemerkung</b></td><td><b>ID</b></td><td><b>Zeitraum</b></td><td><b>Letzte Aktualisierung</b></td></tr>';
-            //Sort variables by name
-            array_multisort(array_column($variables, 'Name'), SORT_ASC, $variables);
-            //Rebase array
-            $variables = array_values($variables);
-            $separator = false;
-            if (!empty($variables)) {
-                //Show sensors with alarm first
-                if ($this->ReadPropertyBoolean('EnableAlarm')) {
-                    foreach ($variables as $variable) {
-                        $id = $variable['ID'];
-                        if ($id != 0 && IPS_ObjectExists($id)) {
-                            if ($variable['ActualStatus'] == 1) {
-                                $separator = true;
-                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td><td>' . $variable['UpdatePeriod'] . ' Tage</td><td>' . $variable['LastUpdate'] . '</td></tr>';
-                            }
-                        }
-                    }
-                }
-                //Sensors with no alarm are next
-                if ($this->ReadPropertyBoolean('EnableOK')) {
-                    //Check if we have an active element for a spacer
-                    $existingElement = false;
-                    foreach ($variables as $variable) {
-                        $id = $variable['ID'];
-                        if ($id != 0 && IPS_ObjectExists($id)) {
-                            if ($variable['ActualStatus'] == 0) {
-                                $existingElement = true;
-                            }
-                        }
-                    }
-                    //Add spacer
-                    if ($separator && $existingElement) {
-                        $string .= '<tr><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td></tr>';
-                    }
-                    //Add sensors
-                    foreach ($variables as $variable) {
-                        $id = $variable['ID'];
-                        if ($id != 0 && IPS_ObjectExists($id)) {
-                            if ($variable['ActualStatus'] == 0) {
-                                $string .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $id . '</td><td>' . $variable['UpdatePeriod'] . ' Tage</td><td>' . $variable['LastUpdate'] . '</td></tr>';
-                            }
-                        }
-                    }
-                }
-            }
-            $string .= '</table>';
-        }
-        $this->SetValue('AlarmSensorList', $string);
-
-        ##### Last triggering detector
-
-        $triggeringDetectorName = '';
-        foreach ($variables as $variable) {
-            $id = $variable['ID'];
-            if ($id != 0 && IPS_ObjectExists($id)) {
-                if ($variable['ActualStatus'] == 1) {
-                    $triggeringDetectorName = $variable['Name'];
-                }
-            }
-        }
-        if ($this->GetValue('TriggeringDetector') != $triggeringDetectorName) {
-            $this->SetValue('TriggeringDetector', $triggeringDetectorName);
-        }
-
-        ##### Notification
-
+        $values = json_decode($this->GetMonitoredVariableValues(), true);
         $criticalVariables = json_decode($this->ReadAttributeString('CriticalVariables'), true);
-
-        foreach ($variables as $variable) {
-            $id = $variable['ID'];
-            if ($id != 0 && IPS_ObjectExists($id)) {
-
+        //Check all variables
+        if ($VariableID == 0) {
+            $this->SetTimerInterval('UpdateStatus', $this->GetWatchTime() * 1000);
+            $actualOverallStatus = false;
+            $triggeringDetectorName = '';
+            foreach ($values as $variable) {
+                $id = $variable['ID'];
                 //Alarm
                 if ($variable['ActualStatus'] == 1) {
+                    $actualOverallStatus = true;
+                    $triggeringDetectorName = $variable['Name'];
                     if (!in_array($id, $criticalVariables)) {
                         //Add to critical variables
                         $criticalVariables[] = $id;
-                        //Notification
+                        //Notifications
                         $this->SendNotification(1, $variable['Name']);
-                        //Push notification
                         $this->SendPushNotification(1, $variable['Name']);
-                        //Mailer notification
-                        $this->SendMailerNotification(1, $id); //change to id
+                        $this->SendMail(1, json_encode($variable));
                     }
                 }
-
                 //OK
                 if ($variable['ActualStatus'] == 0) {
                     if (in_array($id, $criticalVariables)) {
                         //Remove from critical variables
                         $criticalVariables = array_diff($criticalVariables, [$id]);
-                        //Notification
+                        //Notifications
                         $this->SendNotification(0, $variable['Name']);
-                        //Push notification
                         $this->SendPushNotification(0, $variable['Name']);
-                        //Mailer notification
-                        $this->SendMailerNotification(0, $id); //change to id
+                        $this->SendMail(0, json_encode($variable));
+                    }
+                }
+            }
+            if ($this->GetValue('Status') != $actualOverallStatus) {
+                $this->SetValue('Status', $actualOverallStatus);
+            }
+            if ($this->GetValue('TriggeringDetector') != $triggeringDetectorName) {
+                $this->SetValue('TriggeringDetector', $triggeringDetectorName);
+            }
+            $this->SetValue('LastCheck', date('d.m.Y H:i:s', time()));
+            $this->UpdateView(json_encode($values));
+        } else {
+            foreach ($values as $variable) {
+                if ($variable['ID'] == $VariableID) {
+                    $this->SendDebug(__FUNCTION__, 'Variable ID: ' . $VariableID, 0);
+                    //OK
+                    if ($variable['ActualStatus'] == 0) {
+                        $this->SendDebug(__FUNCTION__, 'ActualStatus: 0', 0);
+                        if (in_array($VariableID, $criticalVariables)) {
+                            $this->SendDebug(__FUNCTION__, 'Variable is in crtical list and will be removed!', 0);
+                            //Remove from critical variables
+                            $criticalVariables = array_diff($criticalVariables, [$VariableID]);
+                            //Remove old variable values from the last status list
+                            $listedVariables = json_decode($this->ReadAttributeString('LastStatusList'), true);
+                            $this->SendDebug(__FUNCTION__, 'LastStatusList:' . json_encode($listedVariables), 0);
+                            foreach ($listedVariables as $key => $listedVariable) {
+                                if ($listedVariable['ID'] == $VariableID) {
+                                    unset($listedVariables[$key]);
+                                }
+                            }
+                            //Add new variable value to the status list
+                            $listedVariables[] = $variable;
+                            $this->SendDebug(__FUNCTION__, 'New LastStatusList:' . json_encode($listedVariables), 0);
+                            //Check overall status
+                            if ($this->CheckOverallStatus(json_encode($listedVariables)) == 0) {
+                                if ($this->GetValue('Status')) {
+                                    $this->SetValue('Status', false);
+                                }
+                                if ($this->GetValue('TriggeringDetector') != '') {
+                                    $this->SetValue('TriggeringDetector', '');
+                                }
+                            }
+                            //Update view
+                            $this->UpdateView(json_encode($listedVariables));
+                            //Notifications
+                            $this->SendNotification(0, $variable['Name']);
+                            $this->SendPushNotification(0, $variable['Name']);
+                            $this->SendMail(0, json_encode($variable));
+                        }
                     }
                 }
             }
@@ -568,46 +596,81 @@ trait AM_MonitoredVariables
         $this->WriteAttributeString('CriticalVariables', json_encode(array_values($criticalVariables)));
         //Leave semaphore
         $this->UnlockSemaphore('Update');
-        return $actualOverallStatus;
     }
 
+    ########## Protected
+
     /**
-     * Gets the monitored variables and their status.
+     * Gets the watch time.
+     *
+     * @return int
+     * @throws Exception
+     */
+    protected function GetWatchTime(): int
+    {
+        $timeBase = $this->ReadPropertyInteger('TimeBase');
+        $timeValue = $this->ReadPropertyInteger('TimeValue');
+        switch ($timeBase) {
+            case 1: //Minutes
+                return $timeValue * 60;
+
+            case 2: //Hours
+                return $timeValue * 3600;
+
+            case 3: //Days
+                return $timeValue * 86400;
+
+            default: //Seconds
+                return $timeValue;
+        }
+    }
+
+    ########## Private
+
+    /**
+     * Gets the values of the monitored variables.
      *
      * @return string
      * @throws Exception
      */
-    public function GetMonitoredVariables(): string
+    private function GetMonitoredVariableValues(): string
     {
         $result = [];
         $monitoredVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
         foreach ($monitoredVariables as $variable) {
+            $id = $variable['ID'];
+            if ($id <= 1 || @!IPS_ObjectExists($id)) {
+                continue;
+            }
             if (!$variable['Use']) {
                 continue;
             }
-            $id = $variable['VariableID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) {
-                $actualStatus = 0; //OK
-                $statusText = $this->ReadPropertyString('SensorListStatusTextOK');
-                //Check for update overdue
-                $variableUpdate = IPS_GetVariable($id)['VariableUpdated']; //timestamp or 0 = never
-                $lastUpdate = date('d.m.Y H:i:s', $variableUpdate);
-                $now = time();
-                $dateDifference = ($now - $variableUpdate) / (60 * 60 * 24);
-                $updatePeriod = $variable['UpdatePeriod'];
-                if ($dateDifference > $updatePeriod) {
-                    $actualStatus = 1;
-                    $statusText = $this->ReadPropertyString('SensorListStatusTextAlarm');
-                }
-                $result[] = [
-                    'ID'           => $id,
-                    'Name'         => $variable['Designation'],
-                    'Comment'      => $variable['Comment'],
-                    'UpdatePeriod' => $variable['UpdatePeriod'], //in days
-                    'LastUpdate'   => $lastUpdate,
-                    'ActualStatus' => $actualStatus,
-                    'StatusText'   => $statusText];
+            //OK
+            $actualStatus = 0;
+            $statusText = $this->ReadPropertyString('SensorListStatusTextOK');
+            $overdueSince = '';
+            $variableUpdate = IPS_GetVariable($id)['VariableUpdated']; //timestamp or 0 = never
+            $watchTime = $this->GetWatchTime();
+            $watchTimeBorder = time() - $watchTime;
+            //Alarm
+            if ($variableUpdate < $watchTimeBorder) {
+                $actualStatus = 1;
+                $statusText = $this->ReadPropertyString('SensorListStatusTextAlarm');
+                $timediff = time() - $variableUpdate;
+                $overdueSince = $this->FormatTime($timediff);
             }
+            $lastUpdate = 'Nie';
+            if ($variableUpdate != 0) {
+                $lastUpdate = date('d.m.Y H:i:s', $variableUpdate);
+            }
+            $result[] = [
+                'ID'           => $id,
+                'Name'         => $variable['Designation'],
+                'Comment'      => $variable['Comment'],
+                'ActualStatus' => $actualStatus,
+                'StatusText'   => $statusText,
+                'LastUpdate'   => $lastUpdate,
+                'OverdueSince' => $overdueSince];
         }
         if (!empty($result)) {
             //Sort variables by name
@@ -616,30 +679,121 @@ trait AM_MonitoredVariables
         return json_encode($result);
     }
 
-    #################### Private
-
     /**
-     * Checks for monitored variables.
+     * Formats the time into a string.
      *
-     * @return bool
-     * false =  There are no monitored variables
-     * true =   There are monitored variables
-     * @throws Exception
+     * @param int $Value
+     * @return string
      */
-    private function CheckForExistingVariables(): bool
+    private function FormatTime(int $Value): string
     {
-        $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
-        $monitoredVariables = json_decode($this->ReadPropertyString('TriggerList'), true);
-        foreach ($monitoredVariables as $variable) {
-            if (!$variable['Use']) {
-                continue;
+        $template = '';
+        $number = 0;
+        if ($Value < 60) {
+            return 'Gerade eben';
+        } elseif (($Value > 60) && ($Value < (60 * 60))) {
+            $template = '%s Minute';
+            $number = floor($Value / 60);
+            if ($Value >= (2 * 60)) {
+                $template .= 'n';
             }
-            $id = $variable['VariableID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) { //0 = main category, 1 = none
-                return true;
+        } elseif (($Value > (60 * 60)) && ($Value < (24 * 60 * 60))) {
+            $template = '%s Stunde';
+            $number = floor($Value / (60 * 60));
+            if ($Value >= (2 * 60 * 60)) {
+                $template .= 'n';
+            }
+        } elseif ($Value > (24 * 60 * 60)) {
+            $template = '%s Tag';
+            $number = floor($Value / (24 * 60 * 60));
+            if ($Value >= (2 * 24 * 60 * 60)) {
+                $template .= 'e';
             }
         }
-        $this->SendDebug(__FUNCTION__, 'Abbruch, Es werden keine Variablen überwacht!', 0);
-        return false;
+        return sprintf($template, number_format($number, 0, '', '.'));
+    }
+
+    /**
+     * Updates the visualisation view for the status list.
+     *
+     * @param string $MonitoredVariableValues
+     * @return void
+     * @throws Exception
+     */
+    private function UpdateView(string $MonitoredVariableValues): void
+    {
+        $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
+        $this->SendDebug(__FUNCTION__, 'Values: ' . json_encode($MonitoredVariableValues), 0);
+        $variables = json_decode($MonitoredVariableValues, true);
+        if (!$this->ReadPropertyBoolean('EnableStatusList')) {
+            return;
+        }
+        $this->WriteAttributeString('LastStatusList', $MonitoredVariableValues);
+        $html = "<table style='width: 100%; border-collapse: collapse;'>";
+        $html .= '<tr><td><b>Status</b></td><td><b>ID</b></td><td><b>Name</b></td><td><b>Bemerkung</b></td><td><b>Letzte Aktualisierung</b></td><td><b>Überfällig seit</b></td></tr>';
+        //Sort variables by name
+        array_multisort(array_column($variables, 'Name'), SORT_ASC, $variables);
+        //Rebase array
+        $variables = array_values($variables);
+        $separator = false;
+        if (!empty($variables)) {
+            //Show variables with alarm first
+            if ($this->ReadPropertyBoolean('EnableAlarm')) {
+                foreach ($variables as $variable) {
+                    $id = $variable['ID'];
+                    if ($variable['ActualStatus'] == 1) {
+                        $separator = true;
+                        $html .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $id . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $variable['LastUpdate'] . '</td><td>' . $variable['OverdueSince'] . '</td></tr>';
+                    }
+                }
+            }
+            //Variables with no alarm are next
+            if ($this->ReadPropertyBoolean('EnableOK')) {
+                //Check if we have an active element for a spacer
+                $existingElement = false;
+                foreach ($variables as $variable) {
+                    if ($variable['ActualStatus'] == 0) {
+                        $existingElement = true;
+                    }
+                }
+                //Add spacer
+                if ($separator && $existingElement) {
+                    $html .= '<tr><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td><td><b>&#8205;</b></td></tr>';
+                }
+                //Add variables
+                foreach ($variables as $variable) {
+                    $id = $variable['ID'];
+                    if ($variable['ActualStatus'] == 0) {
+                        $html .= '<tr><td>' . $variable['StatusText'] . '</td><td>' . $id . '</td><td>' . $variable['Name'] . '</td><td>' . $variable['Comment'] . '</td><td>' . $variable['LastUpdate'] . '</td><td>' . $variable['OverdueSince'] . '</td></tr>';
+                    }
+                }
+            }
+        }
+        $html .= '</table>';
+        $this->SetValue('StatusList', $html);
+    }
+
+    /**
+     * Checks the overall status of all monitored variables.
+     *
+     * @param $MonitoredVariableValues
+     * @return int
+     * 0 =  OK,
+     * 1 =  Alarm
+     */
+
+    /**
+     * @param string $MonitoredVariableValues
+     * @return int
+     */
+    private function CheckOverallStatus(string $MonitoredVariableValues): int
+    {
+        $overallStatus = 0;
+        foreach (json_decode($MonitoredVariableValues, true) as $variable) {
+            if ($variable['ActualStatus'] == 1) {
+                $overallStatus = 1;
+            }
+        }
+        return $overallStatus;
     }
 }

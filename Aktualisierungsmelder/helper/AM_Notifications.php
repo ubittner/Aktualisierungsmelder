@@ -1,25 +1,26 @@
 <?php
 
 /**
- * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper
+ * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper/
  * @file          AM_Notifications.php
  * @author        Ulrich Bittner
- * @copyright     2022 Ulrich Bittner
+ * @copyright     2023 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
-/** @noinspection PhpUnusedPrivateMethodInspection */
 /** @noinspection SpellCheckingInspection */
 
 declare(strict_types=1);
 
 trait AM_Notifications
 {
+    ########## Protected
+
     /**
-     * Sends a notification to the WebFront.
+     * Sends a notification.
      *
      * @param int $NotificationType
-     * 0 =  OK
+     * 0 =  OK,
      * 1 =  Alarm
      *
      * @param string $DetectorName
@@ -27,7 +28,7 @@ trait AM_Notifications
      * @return void
      * @throws Exception
      */
-    private function SendNotification(int $NotificationType, string $DetectorName): void
+    protected function SendNotification(int $NotificationType, string $DetectorName): void
     {
         $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
         if ($this->CheckMaintenance()) {
@@ -58,7 +59,7 @@ trait AM_Notifications
      * Sends a push notification.
      *
      * @param int $NotificationType
-     * 0 =  OK
+     * 0 =  OK,
      * 1 =  Alarm
      *
      * @param string $DetectorName
@@ -66,7 +67,7 @@ trait AM_Notifications
      * @return void
      * @throws Exception
      */
-    private function SendPushNotification(int $NotificationType, string $DetectorName): void
+    protected function SendPushNotification(int $NotificationType, string $DetectorName): void
     {
         $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
         if ($this->CheckMaintenance()) {
@@ -99,23 +100,24 @@ trait AM_Notifications
     }
 
     /**
-     * Sends a mail notification.
+     * Sends an e-mail.
      *
      * @param int $NotificationType
-     * 0 =  OK
+     * 0 =  OK,
      * 1 =  Alarm
      *
-     * @param int $VariableID
+     * @param string $VariableValues
      *
      * @return void
      * @throws Exception
      */
-    private function SendMailerNotification(int $NotificationType, int $VariableID): void //change to id
+    protected function SendMail(int $NotificationType, string $VariableValues): void
     {
         $this->SendDebug(__FUNCTION__, 'wird ausgeführt', 0);
         if ($this->CheckMaintenance()) {
             return;
         }
+        $variable = json_decode($VariableValues, true);
         $elements = $this->ReadPropertyString('MailerNotification');
         if ($NotificationType == 1) {
             $elements = $this->ReadPropertyString('MailerNotificationAlarm');
@@ -129,42 +131,41 @@ trait AM_Notifications
                 continue;
             }
             //Prepare text
-            $variables = json_decode($this->GetMonitoredVariables(), true);
-            foreach ($variables as $variable) {
-                if ($variable['ID'] == $VariableID) {
-                    $text = '';
-                    if ($element['UseTimestamp']) {
-                        $timestamp = date('d.m.Y, H:i:s');
-                    }
-                    $comment = $variable['Comment'];
-                    if ($comment != '') {
-                        $name = $variable['Name'] . ' (' . $comment . ')';
-                    } else {
-                        $name = $variable['Name'];
-                    }
-                    $message = sprintf($element['Text'], $name);
-                    if ($element['UseUpdatePeriod']) {
-                        $updatePeriod = $variable['UpdatePeriod'] . ' Tag(e)';
-                    }
-                    if ($element['UseLastUpdate']) {
-                        $lastUpdate = $variable['LastUpdate'];
-                    }
-                    //Build text
-                    if (isset($timestamp)) {
-                        $text .= $timestamp . "\n\n";
-                    }
-                    $text .= $message . "\n\n";
-                    if (isset($updatePeriod)) {
-                        $text .= 'Zeitraum: ' . $updatePeriod . "\n";
-                    }
-                    if (isset($lastUpdate)) {
-                        $text .= 'Letzte Aktualisierung: ' . $lastUpdate;
-                    }
-                    if ($text != '') {
-                        $scriptText = 'MA_SendMessage(' . $id . ', "' . $element['Subject'] . '", "' . $text . '");';
-                        IPS_RunScriptText($scriptText);
-                    }
+            $text = '';
+            if ($element['UseTimestamp']) {
+                $timestamp = date('d.m.Y, H:i:s');
+            }
+            $comment = $variable['Comment'];
+            if ($comment != '') {
+                $name = $variable['Name'] . ' (' . $comment . ')';
+            } else {
+                $name = $variable['Name'];
+            }
+            $message = sprintf($element['Text'], $name);
+            if ($element['UseLastUpdate']) {
+                $lastUpdate = $variable['LastUpdate'];
+            }
+            if ($element['UseOverdueSince']) {
+                $overdueSince = $variable['OverdueSince'];
+            }
+            //Build text
+            if (isset($timestamp)) {
+                $text .= $timestamp . "\n\n";
+            }
+            $text .= $message . "\n\n";
+            $text .= 'ID: ' . $variable['ID'] . "\n\n";
+            if (isset($lastUpdate)) {
+                $text .= 'Letzte Aktualisierung: ' . $lastUpdate . "\n\n";
+            }
+            if (isset($overdueSince)) {
+                if ($overdueSince != '') {
+                    $text .=
+                        'Überfällig seit: ' . $overdueSince;
                 }
+            }
+            if ($text != '') {
+                $scriptText = 'MA_SendMessage(' . $id . ', "' . $element['Subject'] . '", "' . $text . '");';
+                IPS_RunScriptText($scriptText);
             }
         }
     }
