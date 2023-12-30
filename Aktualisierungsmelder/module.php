@@ -160,12 +160,15 @@ class Aktualisierungsmelder extends IPSModule
             }
         }
 
-        foreach (json_decode($this->ReadPropertyString('TriggerList'), true) as $variable) {
-            $id = $variable['ID'];
-            if ($id > 1 && @IPS_ObjectExists($id)) {
-                $this->RegisterReference($id);
-                if ($variable['Use']) {
-                    $this->RegisterMessage($id, VM_UPDATE);
+        $variables = json_decode($this->ReadPropertyString('TriggerList'), true);
+        if (!empty($variables)) {
+            foreach ($variables as $variable) {
+                $id = $variable['ID'];
+                if ($id > 1 && @IPS_ObjectExists($id)) {
+                    $this->RegisterReference($id);
+                    if ($variable['Use']) {
+                        $this->RegisterMessage($id, VM_UPDATE);
+                    }
                 }
             }
         }
