@@ -117,6 +117,7 @@ class Aktualisierungsmelder extends IPSModule
 
         ########## Attributes
 
+        $this->RegisterAttributeString('UpdateList', '[]');
         $this->RegisterAttributeString('LastStatusList', '[]');
         $this->RegisterAttributeString('CriticalVariables', '[]');
 
@@ -173,6 +174,21 @@ class Aktualisierungsmelder extends IPSModule
             }
         }
 
+        //Clean up update list
+        $variableUpdates = json_decode($this->ReadAttributeString('UpdateList'), true);
+        foreach ($variableUpdates as $key => $variableUpdate) {
+            $exists = false;
+            foreach ($variables as $variable) {
+                if ($key == $variable['ID']) {
+                    $exists = true;
+                }
+            }
+            if (!$exists) {
+                unset($variableUpdates[$key]);
+            }
+        }
+        $this->WriteAttributeString('UpdateList', json_encode($variableUpdates));
+
         //WebFront options
         IPS_SetHidden($this->GetIDForIdent('Active'), !$this->ReadPropertyBoolean('EnableActive'));
         IPS_SetHidden($this->GetIDForIdent('Status'), !$this->ReadPropertyBoolean('EnableStatus'));
@@ -201,6 +217,10 @@ class Aktualisierungsmelder extends IPSModule
     public function MessageSink($TimeStamp, $SenderID, $Message, $Data): void
     {
         $this->SendDebug(__FUNCTION__, $TimeStamp . ', SenderID: ' . $SenderID . ', Message: ' . $Message . ', Data: ' . print_r($Data, true), 0);
+        $this->SendDebug(__FUNCTION__, 'Timestamp: ' . time(), 0);
+        foreach ($Data as $key => $value) {
+            $this->SendDebug(__FUNCTION__, 'Data [' . $key . ']: ' . $value, 0);
+        }
         switch ($Message) {
             case IPS_KERNELSTARTED:
                 $this->KernelReady();
@@ -211,9 +231,12 @@ class Aktualisierungsmelder extends IPSModule
                 //$Data[1] = value changed
                 //$Data[2] = last value
                 //$Data[3] = timestamp actual value
-                //$Data[4] = timestamp value changed
-                //$Data[5] = timestamp last value
+                //$Data[4] = timestamp last value
+                //$Data[5] = timestamp value changed
 
+                $updateList = json_decode($this->ReadAttributeString('UpdateList'), true);
+                $updateList[$SenderID] = ['ActualTimestamp' => $Data[3], 'LastTimestamp' => $Data[4]];
+                $this->WriteAttributeString('UpdateList', json_encode($updateList));
                 $this->UpdateStatus($SenderID);
                 break;
 

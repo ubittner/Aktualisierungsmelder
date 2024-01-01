@@ -472,6 +472,12 @@ trait AM_ConfigurationForm
                                             'caption' => 'Überfällig seit',
                                             'width'   => '200px',
                                             'save'    => false
+                                        ],
+                                        [
+                                            'name'    => 'UpdatePeriod',
+                                            'caption' => 'Letzter Aktualisierungszeitraum',
+                                            'width'   => '260px',
+                                            'save'    => false
                                         ]
                                     ]
                                 ],

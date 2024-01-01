@@ -330,13 +330,27 @@ trait AM_MonitoredVariables
         $actualVariableValues = [];
         $values = $this->GetMonitoredVariableValues();
         foreach (json_decode($values, true) as $variable) {
+            $updatePeriod = '';
+            $variablesUpdates = json_decode($this->ReadAttributeString('UpdateList'), true);
+            foreach ($variablesUpdates as $key => $variableUpdate) {
+                if ($variable['ID'] == $key) {
+                    $actualTimestamp = $variableUpdate['ActualTimestamp'];
+                    $this->SendDebug(__FUNCTION__, 'ID' . $key . ', ' . $actualTimestamp, 0);
+                    $lastTimestamp = $variableUpdate['LastTimestamp'];
+                    $this->SendDebug(__FUNCTION__, 'ID' . $key . ', ' . $lastTimestamp, 0);
+                    if ($actualTimestamp != 0 && $lastTimestamp != 0) {
+                        $updatePeriod = $this->FormatTime($actualTimestamp - $lastTimestamp);
+                    }
+                }
+            }
             $actualVariableValues[] = [
                 'ActualStatus' => $variable['StatusText'],
                 'ID'           => $variable['ID'],
                 'Designation'  => $variable['Name'],
                 'Comment'      => $variable['Comment'],
                 'LastUpdate'   => $variable['LastUpdate'],
-                'OverdueSince' => $variable['OverdueSince']
+                'OverdueSince' => $variable['OverdueSince'],
+                'UpdatePeriod' => $updatePeriod
             ];
         }
         $amount = count($actualVariableValues);
