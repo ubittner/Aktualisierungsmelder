@@ -335,11 +335,17 @@ trait AM_MonitoredVariables
             foreach ($variablesUpdates as $key => $variableUpdate) {
                 if ($variable['ID'] == $key) {
                     $actualTimestamp = $variableUpdate['ActualTimestamp'];
-                    $this->SendDebug(__FUNCTION__, 'ID' . $key . ', ' . $actualTimestamp, 0);
                     $lastTimestamp = $variableUpdate['LastTimestamp'];
-                    $this->SendDebug(__FUNCTION__, 'ID' . $key . ', ' . $lastTimestamp, 0);
                     if ($actualTimestamp != 0 && $lastTimestamp != 0) {
                         $updatePeriod = $this->FormatTime($actualTimestamp - $lastTimestamp);
+                        if ($updatePeriod == 'Gerade eben') {
+                            $seconds = $actualTimestamp - $lastTimestamp;
+                            $suffix = 'Sekunden';
+                            if ($seconds == 1) {
+                                $suffix = 'Sekunde';
+                            }
+                            $updatePeriod = $seconds . ' ' . $suffix;
+                        }
                     }
                 }
             }
