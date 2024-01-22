@@ -4,7 +4,7 @@
  * @project       Aktualisierungsmelder/Aktualisierungsmelder/helper/
  * @file          AM_MonitoredVariables.php
  * @author        Ulrich Bittner
- * @copyright     2023 Ulrich Bittner
+ * @copyright     2023, 2024 Ulrich Bittner
  * @license       https://creativecommons.org/licenses/by-nc-sa/4.0/ CC BY-NC-SA 4.0
  */
 
@@ -548,6 +548,7 @@ trait AM_MonitoredVariables
                         //Notifications
                         $this->SendNotification(1, $variable['Name']);
                         $this->SendPushNotification(1, $variable['Name']);
+                        $this->SendPostNotification(1, $variable['Name']);
                         $this->SendMail(1, json_encode($variable));
                     }
                 }
@@ -559,6 +560,7 @@ trait AM_MonitoredVariables
                         //Notifications
                         $this->SendNotification(0, $variable['Name']);
                         $this->SendPushNotification(0, $variable['Name']);
+                        $this->SendPostNotification(0, $variable['Name']);
                         $this->SendMail(0, json_encode($variable));
                     }
                 }
@@ -607,6 +609,7 @@ trait AM_MonitoredVariables
                             //Notifications
                             $this->SendNotification(0, $variable['Name']);
                             $this->SendPushNotification(0, $variable['Name']);
+                            $this->SendPostNotification(0, $variable['Name']);
                             $this->SendMail(0, json_encode($variable));
                         }
                     }
